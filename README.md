@@ -5,23 +5,30 @@ built on Ernest Scheyder's *The War Below* (2024) and Olive Heffernan's
 *The High Seas* (2024), ch. 1, 4 and 12.
 
 A class plays as one body: the council that decides where the metal comes
-from. Six decisions, each with an optional discussion phase on a visible
-clock. Four meters — trust, nature, metal, clout — carry state forward, and
-the last decision branches on whether the council authorised seabed mining or
-led a moratorium. Six endings.
+from. **Four chapters, three decisions each.**
 
-It is drawn, not photographed: hand-inked SVG with stick figures, risograph
-spot colour on paper, and a wobble filter so the vectors read as ink. **The
-drawing reacts to the decision** — the pit opens, the flowers die or get
-fenced, the plume spreads — so consequences land visually before anyone reads
-the text. Everything fits in one viewport; nothing scrolls.
+**The economy is the argument.** You get ten coins for the whole game and
+never get more. Nearly everything that protects a person or a place costs
+coins; nearly everything that harms them is free. You also owe the grid
+**70 units of metal by 2034**, and compromising in every chapter lands you
+around 35. Being moderate everywhere fails. You have to decide where the
+harm goes, which is the thing both books are actually about.
+
+Four shapes of decision — pick one of three, buy what you can afford from
+four competing demands, a continuous slider, and a budget split. The
+drawing reacts live as you choose, before anything is locked in: the fence
+slides and the flowers die as you drag, coin stacks rise, the people you
+funded get a tag over their heads and the ones you didn't walk off.
+
+Six endings, keyed on whether you hit the number and what it cost. The last
+screen names what happened to each of the six people by the flags you set.
 
 ## Running it in class
 
 Open the page, pick a discussion clock (90s / 2min / 3min / none), project it.
 
 - `space` advances
-- `1`–`3` select a choice
+- `1`–`4` select a choice or toggle a card
 - `t` opens the discussion timer
 - `r` restarts from the ending screen
 
@@ -29,19 +36,16 @@ Read the scene aloud, hit **Open the floor**, let the room argue, then click the
 option they land on. The clock is a prompt, not a rule; there is a **+1 min**
 button.
 
-Timing: ~1 min intro, ~3 min per decision, ~5 min debrief ≈ 24 minutes.
+Timing: ~1 min intro, four chapter cards, twelve decisions at ~2 min, ~5 min debrief ≈ 32 minutes. Set the talk clock to 90s to bring it under 30.
 
 ## Structure
 
-| # | Scene | Themes |
+| Chapter | Decisions | Themes |
 |----|-------|--------|
-| 1 | Thacker Pass | Sacred sites, consultation, the 1872 Mining Law, rural jobs |
-| 2 | Rhyolite Ridge | Endangered species, substitution, offshoring harm |
-| 3 | Oak Flat | Religious freedom, block caving, copper for the grid |
-| 4 | The crash | Industrial policy, refining concentration, tariffs, subsidy |
-| 5 | Clarion-Clipperton Zone | Common heritage, the ISA, UNCLOS, small-state development |
-| 6a | The plume | Precaution, burden of proof, sunk cost |
-| 6b | The vacuum | Enforcing commons rules; the cost of a partial moratorium |
+| Nevada | Who you pay for at Thacker Pass · the protest camp · the buckwheat fence | Sacred sites, the 1872 Mining Law, jobs, groundwater, endangered species |
+| Arizona | The Oak Flat swap · what you owe afterwards · the subsidence schedule | Religious freedom, block caving, compensation, copper for the grid |
+| The market | Six billion three ways · the layoff · the cheap dirty tonne | Industrial policy, refining concentration, offshored harm |
+| The deep | ISA or alone or moratorium · the plume *or* the vacuum · the last coins | Common heritage, UNCLOS, small-state development, benefit sharing |
 
 ## Accuracy
 

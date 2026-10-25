@@ -307,7 +307,7 @@ kbd { font-family: inherit; font-weight: 700; border: 2px solid var(--ink); bord
 @keyframes aswim  { 0% { transform: translateX(0); } 50% { transform: translateX(46px); } 100% { transform: translateX(0); } }
 @keyframes abob   { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-7px) rotate(1.5deg); } }
 @keyframes adig   { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
-@keyframes apuff  { 0% { transform: translateY(0) scale(1); opacity: .9; } 100% { transform: translateY(-26px) scale(1.25); opacity: .25; } }
+@keyframes apuff  { 0% { transform: translateY(0) scale(.9); opacity: .85; } 100% { transform: translateY(-13px) scale(1.12); opacity: .3; } }
 @keyframes adrift { 0%,100% { transform: translateX(0); } 50% { transform: translateX(34px); } }
 @keyframes ahop   { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-9px); } }
 
@@ -321,3 +321,49 @@ kbd { font-family: inherit; font-weight: 700; border: 2px solid var(--ink); bord
   .situation { font-size: clamp(12.5px, 1.15vw, 18px); }
   .card .cx em { display: none; }
 }
+
+/* ---- the purse: ten coins, and you never get more ---- */
+.purse { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.purse > b { font-size: clamp(14px,1.5vw,22px); font-weight: 800; font-variant-numeric: tabular-nums; }
+.coins { display: flex; gap: 3px; }
+.coin { width: clamp(7px,.75vw,11px); height: clamp(7px,.75vw,11px); border-radius: 50%; background: var(--yellow); border: 2px solid var(--ink); }
+.coin.pend { background: var(--red); }
+.coin.gone { background: transparent; border-style: dotted; opacity: .55; }
+
+/* metal gauge carries the target line */
+.gauge.metal .bar { position: relative; }
+.gauge.metal .fill { background: var(--yellow); }
+.gauge.metal .goal { position: absolute; left: 100%; top: -3px; bottom: -3px; width: 3px; background: var(--ink); }
+.gauge .lb b i { font-style: normal; font-weight: 700; color: var(--ink-soft); }
+
+/* prices on options */
+.pick { grid-template-columns: auto 1fr auto; }
+.pr { font-weight: 800; font-size: clamp(10px,.95vw,14px); white-space: nowrap; }
+.cost { color: var(--red); letter-spacing: -1px; }
+.free { color: var(--ink-soft); font-style: italic; letter-spacing: 0; }
+.card[aria-pressed="true"] .cost, .card[aria-pressed="true"] .free { color: var(--paper); }
+.broke { opacity: .42; cursor: not-allowed; }
+.broke:hover { transform: none; box-shadow: 4px 4px 0 var(--ink); }
+.card { grid-template-columns: 1fr auto; }
+
+.chip.spend { background: var(--ink); color: var(--paper); }
+.warnline { font-weight: 800; color: var(--red); font-size: clamp(11px,1.05vw,15px); }
+
+/* chapter intro cast */
+.castrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.castchip {
+  display: flex; align-items: center; gap: 6px; border: 3px solid var(--ink); border-radius: 999px;
+  padding: 3px 11px 3px 4px; background: #fff; font-size: clamp(10px,.95vw,14px);
+}
+.castchip .av { width: clamp(20px,2vw,28px); height: clamp(20px,2vw,28px); border: 2px solid var(--ink); border-radius: 50%; display: grid; place-items: center; background: var(--paper2); }
+.castchip .av svg { width: 76%; height: 76%; }
+.castchip b { font-weight: 800; }
+.castchip i { font-style: normal; color: var(--ink-soft); }
+
+/* ending tally + fates */
+.tally { font-size: clamp(11px,1.05vw,15px); font-weight: 700; }
+.tally b { font-size: 1.35em; }
+.tally b.ok { color: var(--teal); } .tally b.bad { color: var(--red); }
+.fates { display: grid; gap: 5px; margin-top: 4px; }
+.fates div { font-size: clamp(10.5px,1vw,14.5px); line-height: 1.32; border-bottom: 2px dotted var(--ink-soft); padding-bottom: 4px; }
+.fates b { font-weight: 800; }

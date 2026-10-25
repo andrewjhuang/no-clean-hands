@@ -1,22 +1,20 @@
 /* NO CLEAN HANDS — engine.
-   One viewport, never scrolls. Four kinds of decision. The drawing
-   updates live while the class is still arguing. */
-
-const TOTAL = new Set(SCENES.map((s) => (s.id === "vacuum" ? "plume" : s.id))).size;
+   Ten coins for the whole game. A metal target you probably can't reach
+   honestly. Four chapters, three decisions each, one storyline. */
 
 const G = {
-  i: -1, scenes: [], phase: "title",
-  m: { trust: 50, eco: 50, supply: 50, cap: 50 },
-  flags: new Set(), record: [],
+  ch: -1, b: 0, beats: [], phase: "title",
+  s: Object.assign({}, START),
+  flags: new Set(), record: [], spent: 0,
   secs: 120, left: 0, tick: null,
-  p: {},            // live params for the current scene's art
-  artKey: "title", artVar: "base",
+  p: {}, artKey: "title", artVar: "base",
 };
 
-const $ = (s) => document.querySelector(s);
+const $ = (q) => document.querySelector(q);
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const clamp = (n) => Math.max(0, Math.min(100, n));
+const cl = (n) => Math.max(0, Math.min(100, n));
 const addD = (a, b) => { Object.entries(b || {}).forEach(([k, v]) => (a[k] = (a[k] || 0) + v)); return a; };
+const setFlags = (f) => { if (f) String(f).split(",").forEach((x) => x.trim() && G.flags.add(x.trim())); };
 
 function avatar(seed) {
   const f = [...String(seed)].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -28,42 +26,53 @@ function avatar(seed) {
   </g></svg>`;
 }
 
-/* ------------------------------------------------------------- shell */
-function shell(panelHTML, extra = "") {
-  document.body.innerHTML = `
-    ${topBar()}
+/* -------------------------------------------------------------- shell */
+function shell(panel, extra = "") {
+  document.body.innerHTML = `${bar()}
     <main class="stage">
-      <section class="art">
-        <div class="plate" id="art">
-          <div class="layer" id="artlayer">${drawScene(G.artKey, G.artVar, G.p)}</div>
-          ${extra}
-        </div>
-      </section>
-      <section class="panel ${G.phase === "outcome" ? "mid" : ""}">${panelHTML}</section>
+      <section class="art"><div class="plate" id="art">
+        <div class="layer" id="artlayer">${drawScene(G.artKey, G.artVar, G.p)}</div>${extra}
+      </div></section>
+      <section class="panel ${G.phase === "outcome" ? "mid" : ""}">${panel}</section>
     </main>`;
 }
+const paintArt = () => { const l = $("#artlayer"); if (l) l.innerHTML = drawScene(G.artKey, G.artVar, G.p); };
 
-function paintArt() {
-  const l = $("#artlayer");
-  if (l) l.innerHTML = drawScene(G.artKey, G.artVar, G.p);
+function coinRow(n, spentNow = 0) {
+  let out = "";
+  for (let i = 0; i < START.coins; i++) {
+    const cls = i < n - spentNow ? "coin" : i < n ? "coin pend" : "coin gone";
+    out += `<span class="${cls}"></span>`;
+  }
+  return out;
 }
 
-function topBar() {
+function bar(pending = 0) {
   if (G.phase === "title") {
     return `<header class="top"><span class="mark">No Clean <em>Hands</em></span><span class="grow"></span>
       <span class="tiny"><kbd>space</kbd> start</span></header>`;
   }
   const done = G.phase === "end" || G.phase === "debrief";
+  const chap = CHAPTERS[Math.max(0, G.ch)];
   return `<header class="top">
     <span class="mark">No Clean <em>Hands</em></span>
-    <span class="step">${done ? "done" : `${Math.min(G.i + 1, TOTAL)} / ${TOTAL}`}</span>
+    <span class="step">${done ? "2034" : `${esc(chap.title)} &middot; ${Math.min(G.b + 1, G.beats.length || 3)}/${G.beats.length || 3}`}</span>
+    <span class="purse" title="Ten coins for the whole game. You never get more.">
+      <b>${G.s.coins - pending}</b><span class="coins">${coinRow(G.s.coins, pending)}</span></span>
     <span class="grow"></span>
-    <div class="gauges">${METERS.map((x) => `
-      <div class="gauge ${G.m[x.key] < 34 ? "low" : ""}" data-k="${x.key}" title="${esc(x.full)}">
-        <div class="lb">${esc(x.label)}<b>${G.m[x.key]}</b></div>
-        <div class="bar"><div class="fill" style="width:${G.m[x.key]}%"></div></div>
-      </div>`).join("")}</div>
-  </header>`;
+    <div class="gauges">
+      <div class="gauge metal" data-k="metal" title="${esc(METERS[2].full)}">
+        <div class="lb">Metal<b>${G.s.metal}<i>/${METAL_TARGET}</i></b></div>
+        <div class="bar"><div class="fill" style="width:${Math.min(100, (G.s.metal / METAL_TARGET) * 100)}%"></div>
+          <span class="goal"></span></div>
+      </div>
+      ${["trust", "nature"].map((k, i) => {
+        const m = METERS[k === "trust" ? 0 : 1];
+        return `<div class="gauge ${G.s[k] < 34 ? "low" : ""}" data-k="${k}" title="${esc(m.full)}">
+          <div class="lb">${m.label}<b>${G.s[k]}</b></div>
+          <div class="bar"><div class="fill" style="width:${G.s[k]}%"></div></div></div>`;
+      }).join("")}
+    </div></header>`;
 }
 
 const bump = (d) => Object.keys(d).forEach((k) => {
@@ -75,263 +84,258 @@ const bump = (d) => Object.keys(d).forEach((k) => {
 function title() {
   G.phase = "title"; G.artKey = "title"; G.artVar = "base"; G.p = {};
   document.body.dataset.realm = "land";
-  shell(`
-    <div class="titlewrap">
+  shell(`<div class="titlewrap">
       <h1 class="bigtitle">No Clean<br><em>Hands</em></h1>
       <p class="subtitle">${esc(PROLOGUE.sub)}</p>
-      ${PROLOGUE.lines.map((l) => `<p class="situation">${esc(l)}</p>`).join("")}
-      <div class="row">
-        <button class="btn" id="go">Start</button>
-        <label class="tiny">talk time
-          <select id="tsel" class="sel"><option value="90">90s</option><option value="120" selected>2 min</option>
-          <option value="180">3 min</option><option value="0">none</option></select>
-        </label>
-      </div>
+      ${PROLOGUE.lines.map((l) => `<p class="situation">${l}</p>`).join("")}
+      <div class="row"><button class="btn" id="go">Start</button>
+        <label class="tiny">talk time <select id="tsel" class="sel">
+          <option value="90">90s</option><option value="120" selected>2 min</option>
+          <option value="180">3 min</option><option value="0">none</option></select></label></div>
       <p class="tiny">${esc(PROLOGUE.note)}</p>
     </div>`);
   $("#tsel").onchange = (e) => (G.secs = +e.target.value);
-  $("#go").onclick = () => { G.i = 0; G.scenes = pickScenes(); scene(); };
+  $("#go").onclick = () => { G.ch = 0; chapter(); };
 }
 
-const pickScenes = () => SCENES.filter((s) => !s.requires || G.flags.has(s.requires));
-const now = () => G.scenes[G.i];
-
-/* -------------------------------------------------------------- scene */
-function scene() {
-  const s = now();
-  if (!s) return ending();
-  G.phase = "scene";
-  G.artKey = s.art; G.artVar = "base";
-  G.p = startParams(s);
-  document.body.dataset.realm = s.realm;
-
-  const voices = (s.voices || []).map((v) => `
-    <div class="voice"><span class="av">${avatar(v.who)}</span>
-      <span class="said"><b>${esc(v.who)} &middot; ${esc(v.role)}</b>${esc(v.line)}</span></div>`).join("");
-
-  shell(`
-    <div class="scroll">
-      <div class="where"><h2>${esc(s.place)}</h2><span class="yr">${esc(s.year)}</span></div>
-      <p class="situation">${esc(s.situation)}</p>
-      ${voices}
+/* ------------------------------------------------------------ chapter */
+function chapter() {
+  const c = CHAPTERS[G.ch];
+  if (!c) return ending();
+  G.phase = "intro"; G.b = 0;
+  G.beats = c.beats.filter((b) => !b.requires || G.flags.has(b.requires));
+  G.artKey = c.art; G.artVar = "base"; G.p = {};
+  document.body.dataset.realm = c.realm;
+  shell(`<div class="scroll">
+      <div class="where"><h2>${esc(c.title)}</h2><span class="yr">chapter ${G.ch + 1} of ${CHAPTERS.length}</span></div>
+      <p class="subtitle">${esc(c.sub)}</p>
+      <p class="situation">${esc(c.intro)}</p>
+      <div class="castrow">${c.cast.map((p) => `
+        <span class="castchip"><span class="av">${avatar(p.who)}</span><b>${esc(p.who)}</b><i>${esc(p.role)}</i></span>`).join("")}</div>
     </div>
-    <div class="askline">${esc(s.ask)}</div>
-    <div class="controls" id="controls">${controlsFor(s)}</div>
+    <div class="controls"><button class="btn" id="go">Three decisions &rarr;</button></div>`);
+  $("#go").onclick = beat;
+}
+
+/* --------------------------------------------------------------- beat */
+function beat() {
+  const b = G.beats[G.b];
+  if (!b) { G.ch++; return chapter(); }
+  G.phase = "beat";
+  G.artKey = b.art || CHAPTERS[G.ch].art; G.artVar = "base";
+  G.p = b.type === "slider" ? { [b.slider.key]: b.slider.start }
+      : b.type === "budget" ? { alloc: b.budget.lines.map(() => 0) }
+      : b.type === "spend" ? { chosen: [] } : {};
+
+  shell(`<div class="scroll">
+      <div class="where"><h2>${esc(b.place)}</h2><span class="yr">${esc(b.year)}</span></div>
+      <p class="situation">${esc(b.situation)}</p>
+      ${(b.voices || []).map((v) => `<div class="voice"><span class="av">${avatar(v.who)}</span>
+        <span class="said"><b>${esc(v.who)} &middot; ${esc(v.role)}</b>${esc(v.line)}</span></div>`).join("")}
+    </div>
+    <div class="askline">${esc(b.ask)}</div>
+    <div class="controls" id="controls">${controls(b)}</div>
     <div class="row"><button class="btn alt mini" id="talk">Talk it over</button>
       <button class="btn alt mini" id="more">More detail</button>
-      <span class="grow"></span>${confirmFor(s)}</div>`);
-
-  wire(s);
+      <span class="grow"></span>${b.type === "choice" ? "" : `<button class="btn" id="commit">Commit</button>`}</div>`);
+  wire(b);
 }
 
-function startParams(s) {
-  if (s.type === "slider") return { [s.slider.key]: s.slider.start };
-  if (s.type === "budget") return { alloc: [0, 0, 0] };
-  if (s.type === "stakeholders") return { chosen: [] };
-  return {};
-}
+const price = (n) => n === 0 ? `<span class="free">free</span>` : `<span class="cost">${"●".repeat(n)} ${n}</span>`;
 
-/* ----------------------------------------------------------- controls */
-function controlsFor(s) {
-  if (s.type === "choice") {
-    return s.choices.map((c, i) => `
-      <button class="pick" data-i="${i}">
+function controls(b) {
+  if (b.type === "choice") {
+    return b.choices.map((c, i) => {
+      const broke = c.cost > G.s.coins;
+      return `<button class="pick ${broke ? "broke" : ""}" data-i="${i}" ${broke ? "disabled" : ""}>
         <span class="key">${i + 1}</span>
         <span class="tx"><b>${esc(c.label)}</b><i>${esc(c.sub)}</i></span>
-      </button>`).join("");
+        <span class="pr">${price(c.cost)}</span></button>`;
+    }).join("");
   }
-  if (s.type === "stakeholders") {
-    return `<div class="cards">${s.stakeholders.map((h, i) => `
-      <button class="card" data-id="${h.id}" data-i="${i}" aria-pressed="false">
-        <span class="face">${avatar(h.who)}</span>
-        <span class="cx"><b>${esc(h.who)} &middot; ${esc(h.role)}</b><i>${esc(h.ask)}</i>
-        <em>&ldquo;${esc(h.line)}&rdquo;</em></span>
-        <span class="tick">${i + 1}</span>
-      </button>`).join("")}</div>`;
+  if (b.type === "spend") {
+    return `<div class="cards">${b.options.map((o, i) => `
+      <button class="card" data-id="${o.id}" data-i="${i}" aria-pressed="false">
+        <span class="cx"><b>${esc(o.label)}</b><i>${esc(o.note)}</i></span>
+        <span class="pr">${price(o.cost)}</span></button>`).join("")}</div>`;
   }
-  if (s.type === "slider") {
-    const v = G.p[s.slider.key];
+  if (b.type === "slider") {
+    const v = G.p[b.slider.key];
     return `<div class="sliderbox">
-      <input type="range" id="sl" min="${s.slider.min}" max="${s.slider.max}" step="${s.slider.step}" value="${v}">
-      <div class="slends"><span>${esc(s.slider.labelLow)}</span><b id="slval">${v}${esc(s.slider.unit)}</b><span>${esc(s.slider.labelHigh)}</span></div>
+      <input type="range" id="sl" min="${b.slider.min}" max="${b.slider.max}" step="${b.slider.step}" value="${v}">
+      <div class="slends"><span>${esc(b.slider.labelLow)}</span><b id="slval">${v}${esc(b.slider.unit)}</b><span>${esc(b.slider.labelHigh)}</span></div>
     </div>`;
   }
-  if (s.type === "budget") {
-    const b = s.budget, a = G.p.alloc;
-    const left = b.units - a.reduce((x, y) => x + y, 0);
-    return `<div class="budget">
-      <div class="left">Unspent: <b id="bleft">${left}</b> &times; ${esc(b.unitLabel)}</div>
-      ${b.lines.map((l, i) => `
-        <div class="bline">
-          <span class="bt"><b>${esc(l.label)}</b><i>${esc(l.note)}</i></span>
-          <span class="bctl">
-            <button class="bstep" data-i="${i}" data-d="-1" aria-label="less">&minus;</button>
-            <b class="bval" id="bv${i}">${a[i]}</b>
-            <button class="bstep" data-i="${i}" data-d="1" aria-label="more">+</button>
-          </span>
-        </div>`).join("")}
-    </div>`;
+  if (b.type === "budget") {
+    const a = G.p.alloc, cap = Math.min(b.budget.max, G.s.coins);
+    return `<div class="budget"><div class="left">Up to <b>${cap}</b> coins</div>
+      ${b.budget.lines.map((l, i) => `<div class="bline">
+        <span class="bt"><b>${esc(l.label)}</b><i>${esc(l.note)}</i></span>
+        <span class="bctl"><button class="bstep" data-i="${i}" data-d="-1" aria-label="less">&minus;</button>
+        <b class="bval" id="bv${i}">${a[i]}</b>
+        <button class="bstep" data-i="${i}" data-d="1" aria-label="more">+</button></span></div>`).join("")}</div>`;
   }
   return "";
 }
 
-function confirmFor(s) {
-  if (s.type === "choice") return "";
-  const label = s.type === "stakeholders" ? "Lock it in" : "Commit";
-  return `<button class="btn" id="commit" ${s.type === "stakeholders" ? "disabled" : ""}>${label}</button>`;
-}
+function wire(b) {
+  $("#talk").onclick = () => sheet("talk", b);
+  $("#more").onclick = () => sheet("detail", b);
 
-function wire(s) {
-  $("#talk").onclick = () => sheet("talk", s);
-  $("#more").onclick = () => sheet("detail", s);
-
-  if (s.type === "choice") {
-    document.querySelectorAll(".pick").forEach((b) => (b.onclick = () => resolveChoice(s, +b.dataset.i)));
+  if (b.type === "choice") {
+    document.querySelectorAll(".pick").forEach((el) => (el.onclick = () => {
+      const c = b.choices[+el.dataset.i];
+      if (c.cost > G.s.coins) return;
+      spendCoins(c.cost); setFlags(c.flag);
+      land(b, c.key, c.out.t, c.out.x, Object.assign({}, c.d), c.label, c.cost);
+    }));
     return;
   }
-  if (s.type === "stakeholders") {
-    document.querySelectorAll(".card").forEach((b) => (b.onclick = () => {
-      const id = b.dataset.id, on = G.p.chosen.includes(id);
-      if (on) G.p.chosen = G.p.chosen.filter((x) => x !== id);
-      else if (G.p.chosen.length < s.pickCount) G.p.chosen = [...G.p.chosen, id];
+  if (b.type === "spend") {
+    const refresh = () => {
+      const used = G.p.chosen.reduce((t, id) => t + b.options.find((o) => o.id === id).cost, 0);
+      document.querySelectorAll(".card").forEach((el) => {
+        const o = b.options.find((x) => x.id === el.dataset.id);
+        const on = G.p.chosen.includes(o.id);
+        el.setAttribute("aria-pressed", on ? "true" : "false");
+        el.classList.toggle("broke", !on && o.cost > G.s.coins - used);
+      });
+      document.querySelector("header").outerHTML = bar(used);
+      paintArt();
+    };
+    document.querySelectorAll(".card").forEach((el) => (el.onclick = () => {
+      const o = b.options.find((x) => x.id === el.dataset.id);
+      const used = G.p.chosen.reduce((t, id) => t + b.options.find((y) => y.id === id).cost, 0);
+      if (G.p.chosen.includes(o.id)) G.p.chosen = G.p.chosen.filter((x) => x !== o.id);
+      else if (o.cost <= G.s.coins - used) G.p.chosen = [...G.p.chosen, o.id];
       else return;
-      document.querySelectorAll(".card").forEach((c) =>
-        c.setAttribute("aria-pressed", G.p.chosen.includes(c.dataset.id) ? "true" : "false"));
-      $("#commit").disabled = G.p.chosen.length !== s.pickCount;
-      paintArt();
+      refresh();
     }));
-    $("#commit").onclick = () => resolveStakeholders(s);
+    $("#commit").onclick = () => {
+      const picked = b.options.filter((o) => G.p.chosen.includes(o.id));
+      const missed = b.options.filter((o) => !G.p.chosen.includes(o.id) && o.no);
+      const cost = picked.reduce((t, o) => t + o.cost, 0);
+      const d = {}; picked.forEach((o) => { addD(d, o.d); setFlags(o.flag); });
+      spendCoins(cost);
+      const txt = [...picked.map((o) => o.yes), ...missed.map((o) => o.no)].filter(Boolean).join(" ");
+      land(b, "base", picked.length ? "What you bought" : "You bought nothing",
+           txt || "You spend nothing and the default happens, which is what the default is for.",
+           d, picked.map((o) => o.label).join(" + ") || "nothing", cost);
+    };
     return;
   }
-  if (s.type === "slider") {
+  if (b.type === "slider") {
     const sl = $("#sl");
-    sl.oninput = () => { G.p[s.slider.key] = +sl.value; $("#slval").textContent = sl.value + s.slider.unit; paintArt(); };
-    $("#commit").onclick = () => resolveSlider(s);
+    sl.oninput = () => { G.p[b.slider.key] = +sl.value; $("#slval").textContent = sl.value + b.slider.unit; paintArt(); };
+    $("#commit").onclick = () => {
+      const v = G.p[b.slider.key];
+      const band = b.bands.find((x) => v <= x.max) || b.bands[b.bands.length - 1];
+      setFlags(band.flag);
+      land(b, "base", band.t, band.x, Object.assign({}, band.d), `${v}${b.slider.unit}`, 0);
+    };
     return;
   }
-  if (s.type === "budget") {
-    document.querySelectorAll(".bstep").forEach((b) => (b.onclick = () => {
-      const i = +b.dataset.i, d = +b.dataset.d, a = G.p.alloc;
+  if (b.type === "budget") {
+    const cap = Math.min(b.budget.max, G.s.coins);
+    document.querySelectorAll(".bstep").forEach((el) => (el.onclick = () => {
+      const i = +el.dataset.i, dd = +el.dataset.d, a = G.p.alloc;
       const used = a.reduce((x, y) => x + y, 0);
-      if (d > 0 && used >= s.budget.units) return;
-      a[i] = Math.max(0, a[i] + d);
+      if (dd > 0 && used >= cap) return;
+      a[i] = Math.max(0, a[i] + dd);
       $("#bv" + i).textContent = a[i];
-      $("#bleft").textContent = s.budget.units - a.reduce((x, y) => x + y, 0);
+      document.querySelector("header").outerHTML = bar(a.reduce((x, y) => x + y, 0));
       paintArt();
     }));
-    $("#commit").onclick = () => resolveBudget(s);
+    $("#commit").onclick = () => {
+      const a = G.p.alloc, d = {};
+      b.budget.lines.forEach((l, i) => { for (let k = 0; k < a[i]; k++) addD(d, l.per); });
+      const used = a.reduce((x, y) => x + y, 0);
+      spendCoins(used);
+      let top = -1, ti = -1;
+      a.forEach((v, i) => { if (v > top) { top = v; ti = i; } });
+      const parts = [top === 0 ? b.outcomes.none : b.outcomes[b.budget.lines[ti].id]];
+      const zeros = b.budget.lines.filter((l, i) => a[i] === 0 && top > 0).map((l) => l.label.toLowerCase());
+      if (zeros.length) parts.push(`You put nothing into ${zeros.join(" or ")}, and the committee notices.`);
+      land(b, "base", top === 0 ? "You let the market do it" : `Mostly on ${b.budget.lines[ti].label.toLowerCase()}`,
+           parts.join(" "), d, a.map((v, i) => `${b.budget.lines[i].label} ${v}`).join(" · "), used);
+    };
   }
 }
 
-/* -------------------------------------------------------------- sheets */
-function sheet(kind, s) {
+function spendCoins(n) { G.s.coins = Math.max(0, G.s.coins - n); G.spent += n; }
+
+/* ------------------------------------------------------------- sheets */
+function sheet(kind, b) {
   const art = $("#art");
-  if (art.querySelector(".sheet")) art.querySelector(".sheet").remove();
+  art.querySelector(".sheet")?.remove();
   const el = document.createElement("div");
   el.className = "sheet";
   el.innerHTML = kind === "talk"
-    ? `<h3>Talk it over</h3><ol>${s.discuss.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>
+    ? `<h3>Talk it over</h3><ol>${b.discuss.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>
        <div class="bigclock" id="clock">${G.secs ? fmt(G.secs) : "--:--"}</div>
        <div class="row"><button class="btn mini alt" id="more1">+1 min</button>
        <button class="btn mini alt" id="close">Back to the picture</button></div>`
-    : `<h3>What else is true</h3><ul class="deets">${s.detail.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
+    : `<h3>What else is true</h3><ul class="deets">${b.detail.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
        <div class="row" style="margin-top:auto"><button class="btn mini alt" id="close">Back to the picture</button></div>`;
   art.appendChild(el);
   el.querySelector("#close").onclick = () => { stop(); el.remove(); };
-  const m1 = el.querySelector("#more1");
-  if (m1) m1.onclick = () => { G.left += 60; paintClock(); };
+  el.querySelector("#more1") && (el.querySelector("#more1").onclick = () => { G.left += 60; tickPaint(); });
   if (kind === "talk" && G.secs) run(G.secs);
 }
-
 const fmt = (t) => `${t < 0 ? "-" : ""}${Math.floor(Math.abs(t) / 60)}:${String(Math.abs(t) % 60).padStart(2, "0")}`;
-function paintClock() { const c = $("#clock"); if (c) { c.textContent = fmt(G.left); c.classList.toggle("warn", G.left <= 20); } }
-function run(sec) { stop(); G.left = sec; paintClock(); G.tick = setInterval(() => { G.left--; paintClock(); if (G.left <= -60) stop(); }, 1000); }
+function tickPaint() { const c = $("#clock"); if (c) { c.textContent = fmt(G.left); c.classList.toggle("warn", G.left <= 20); } }
+function run(s) { stop(); G.left = s; tickPaint(); G.tick = setInterval(() => { G.left--; tickPaint(); if (G.left <= -60) stop(); }, 1000); }
 function stop() { if (G.tick) { clearInterval(G.tick); G.tick = null; } }
 
-/* ------------------------------------------------------------ resolve */
-function resolveChoice(s, i) {
-  const c = s.choices[i];
-  if (!c) return;
-  (c.flags || []).forEach((f) => G.flags.add(f));
-  land(s, c.key, c.out.t, c.out.x, Object.assign({}, c.d), c.label);
-}
-
-function resolveStakeholders(s) {
-  const chosen = G.p.chosen, d = {};
-  const won = s.stakeholders.filter((h) => chosen.includes(h.id));
-  const lost = s.stakeholders.filter((h) => !chosen.includes(h.id));
-  won.forEach((h) => addD(d, h.d));
-  // ignoring someone is not free: you lose part of what they were offering
-  lost.forEach((h) => Object.entries(h.d).forEach(([k, v]) => { if (v > 0) d[k] = (d[k] || 0) - Math.round(v * 0.4); }));
-  const t = s.pairTitles[chosen.slice().sort().join("|")] || "Two promises kept";
-  const x = won.map((h) => h.win).join(" ") + " " + lost.map((h) => h.lose).join(" ");
-  G.p.locked = true;
-  land(s, "base", t, x.trim(), d, won.map((h) => h.who.split(",")[0]).join(" + "));
-}
-
-function resolveSlider(s) {
-  const v = G.p[s.slider.key];
-  const band = s.bands.find((b) => v <= b.max) || s.bands[s.bands.length - 1];
-  land(s, "base", band.t, band.x, Object.assign({}, band.d), `${v}${s.slider.unit}`);
-}
-
-function resolveBudget(s) {
-  const a = G.p.alloc, b = s.budget, d = {};
-  b.lines.forEach((l, i) => {
-    for (let k = 0; k < a[i]; k++) addD(d, l.per);
-  });
-  const left = b.units - a.reduce((x, y) => x + y, 0);
-  if (left) addD(d, { cap: left * 2 });                      // unspent money is kept clout
-  let top = -1, topI = -1;
-  a.forEach((v, i) => { if (v > top) { top = v; topI = i; } });
-  const parts = [];
-  parts.push(top === 0 ? s.outcomes.none : s.outcomes[b.lines[topI].id]);
-  const zeros = b.lines.filter((l, i) => a[i] === 0 && top > 0).map((l) => l.label.toLowerCase());
-  if (zeros.length) parts.push(`You put nothing into ${zeros.join(" or ")}, and the committee notices.`);
-  if (left) parts.push(`${left} billion stays unspent, which buys you room you will need later.`);
-  land(s, "base", top === 0 ? "You let the market do it" : `Six billion, mostly on ${b.lines[topI].label.toLowerCase()}`,
-       parts.join(" "), d, a.map((v, i) => `${b.lines[i].label} ${v}`).join(" · "));
-}
-
-/* a decision lands: meters move, the drawing changes, the stamp drops */
-function land(s, variant, t, x, d, stampText) {
+/* -------------------------------------------------------------- land */
+function land(b, variant, t, x, d, stampText, cost) {
   stop();
-  if (G.i < TOTAL - 1) d.cap = (d.cap || 0) + 5;
-  Object.entries(d).forEach(([k, v]) => (G.m[k] = clamp(G.m[k] + v)));
-  G.record.push({ place: s.place, label: stampText });
-  G.phase = "outcome";
-  G.artVar = variant;
+  G.s.trust = cl(G.s.trust + (d.trust || 0));
+  G.s.nature = cl(G.s.nature + (d.nature || 0));
+  G.s.metal = Math.max(0, G.s.metal + (d.metal || 0));
+  G.record.push({ place: b.place, label: stampText, cost });
+  G.phase = "outcome"; G.artVar = variant;
+  if (b.type === "spend") G.p.locked = true;
 
-  shell(`
-    <div class="scroll">
-      <div class="where"><h2 class="outcome-t">${esc(t)}</h2><span class="yr">${esc(s.year)}</span></div>
+  const chips = [["metal", "Metal"], ["trust", "Trust"], ["nature", "Nature"]]
+    .filter(([k]) => d[k]).map(([k, lbl]) => `<span class="chip ${d[k] > 0 ? "up" : "down"}">${lbl} ${d[k] > 0 ? "+" : ""}${d[k]}</span>`).join("")
+    + (cost ? `<span class="chip spend">&minus;${cost} ${cost === 1 ? "coin" : "coins"}</span>` : "");
+
+  shell(`<div class="scroll">
+      <div class="where"><h2 class="outcome-t">${esc(t)}</h2><span class="yr">${esc(b.year)}</span></div>
       <p class="outcome-x">${esc(x)}</p>
-      <div class="deltas">${METERS.filter((m) => d[m.key]).map((m) => {
-        const v = d[m.key];
-        return `<span class="chip ${v > 0 ? "up" : "down"}">${esc(m.label)} ${v > 0 ? "+" : ""}${v}</span>`;
-      }).join("")}</div>
+      <div class="deltas">${chips}</div>
+      ${G.s.coins === 0 ? `<p class="warnline">No coins left. Everything that protects somebody is now out of reach.</p>` : ""}
     </div>
-    <div class="controls"><button class="btn" id="next">${G.i + 1 >= TOTAL ? "See how it ends" : "Next"}</button></div>`,
+    <div class="controls"><button class="btn" id="next">Next</button></div>`,
     `<div class="stamp">${esc(stampText)}</div>`);
 
   const layer = $("#artlayer");
   layer.classList.add("art-enter");
-  if ((d.eco || 0) + (d.trust || 0) < -14) setTimeout(() => layer.classList.add("shake"), 300);
+  if ((d.nature || 0) + (d.trust || 0) < -14) setTimeout(() => layer.classList.add("shake"), 300);
   bump(d);
-  $("#next").onclick = () => { G.i++; G.scenes = pickScenes(); G.i >= TOTAL ? ending() : scene(); };
+  $("#next").onclick = () => {
+    // re-filter: a flag set by THIS beat may have just unlocked the next one
+    G.beats = CHAPTERS[G.ch].beats.filter((x) => !x.requires || G.flags.has(x.requires));
+    G.b++;
+    if (G.b >= G.beats.length) { G.ch++; if (G.ch >= CHAPTERS.length) return ending(); return chapter(); }
+    beat();
+  };
 }
 
 /* ------------------------------------------------------------- ending */
 function ending() {
   G.phase = "end";
-  const e = ENDINGS.find((x) => x.test(G.m)) || ENDINGS[ENDINGS.length - 1];
+  const e = ENDINGS.find((x) => x.test(G.s)) || ENDINGS[ENDINGS.length - 1];
   G.artKey = e.art; G.artVar = "base"; G.p = {};
   document.body.dataset.realm = G.flags.has("sea_mine") ? "sea" : "land";
-  shell(`
-    <div class="scroll">
+  const hit = G.s.metal >= METAL_TARGET;
+  shell(`<div class="scroll">
       <div class="where"><h2>${esc(e.title)}</h2><span class="yr">2034</span></div>
+      <p class="tally"><b class="${hit ? "ok" : "bad"}">${G.s.metal} / ${METAL_TARGET}</b> metal &nbsp;&middot;&nbsp;
+        ${G.spent} of ${START.coins} coins spent &nbsp;&middot;&nbsp; trust ${G.s.trust} &nbsp;&middot;&nbsp; nature ${G.s.nature}</p>
       <p class="situation">${esc(e.text)}</p>
-      <div class="recs">${G.record.map((r) => `<div><span>${esc(r.place)}</span><b>${esc(r.label)}</b></div>`).join("")}</div>
+      <div class="fates">${FATES.map((f) => `<div><b>${esc(f.who)}</b> ${esc(G.flags.has(f.if) ? f.yes : f.no)}</div>`).join("")}</div>
     </div>
     <div class="controls"><button class="btn" id="deb">Debrief</button>
       <button class="btn alt" id="again">Play again</button></div>`);
@@ -341,39 +345,31 @@ function ending() {
 
 function debrief() {
   G.phase = "debrief"; G.artKey = "title"; G.artVar = "base"; G.p = {};
-  shell(`
-    <div class="scroll">
+  shell(`<div class="scroll">
       <div class="where"><h2>What was real</h2></div>
       <div class="facts">${DEBRIEF.real.map(([h, t]) => `<div><b>${esc(h)}.</b> ${esc(t)}</div>`).join("")}</div>
     </div>
     <div class="controls"><button class="btn alt" id="again">Run it again</button></div>`,
     `<div class="sheet"><h3>Now the real argument</h3>
-       <ol>${DEBRIEF.questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>
-       <p class="tiny" style="margin-top:auto">Ernest Scheyder, <em>The War Below</em> &middot; Olive Heffernan, <em>The High Seas</em>, ch. 1, 4, 12</p>
-     </div>`);
+      <ol>${DEBRIEF.questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>
+      <p class="tiny" style="margin-top:auto">Ernest Scheyder, <em>The War Below</em> &middot; Olive Heffernan, <em>The High Seas</em>, ch. 1, 4, 12</p></div>`);
   $("#again").onclick = reset;
 }
 
 function reset() {
   stop();
-  G.i = -1; G.m = { trust: 50, eco: 50, supply: 50, cap: 50 };
-  G.flags = new Set(); G.record = []; G.scenes = []; G.p = {};
+  G.ch = -1; G.b = 0; G.beats = []; G.s = Object.assign({}, START);
+  G.flags = new Set(); G.record = []; G.spent = 0; G.p = {};
   title();
 }
 
-/* ----------------------------------------------------------- keyboard */
 document.addEventListener("keydown", (e) => {
   if (["SELECT", "INPUT"].includes(e.target.tagName)) return;
   const k = e.key.toLowerCase();
-  if (k === " " || k === "enter") {
-    const b = $("#go") || $("#next") || $("#deb") || (!$("#commit")?.disabled && $("#commit"));
-    if (b) { e.preventDefault(); b.click(); }
-    return;
-  }
-  if (k === "t" && G.phase === "scene") { $("#talk")?.click(); return; }
-  if (G.phase === "scene" && ["1", "2", "3", "4"].includes(k)) {
-    const el = document.querySelector(`.pick[data-i="${+k - 1}"]`) || document.querySelector(`.card[data-i="${+k - 1}"]`);
-    el?.click();
+  if (k === " " || k === "enter") { const b = $("#go") || $("#next") || $("#deb"); if (b) { e.preventDefault(); b.click(); } return; }
+  if (k === "t" && G.phase === "beat") { $("#talk")?.click(); return; }
+  if (G.phase === "beat" && ["1", "2", "3", "4"].includes(k)) {
+    (document.querySelector(`.pick[data-i="${+k - 1}"]`) || document.querySelector(`.card[data-i="${+k - 1}"]`))?.click();
   }
   if (k === "r" && (G.phase === "end" || G.phase === "debrief")) reset();
 });
