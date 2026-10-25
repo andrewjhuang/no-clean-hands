@@ -351,8 +351,7 @@ function debrief() {
     </div>
     <div class="controls"><button class="btn alt" id="again">Run it again</button></div>`,
     `<div class="sheet"><h3>Now the real argument</h3>
-      <ol>${DEBRIEF.questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ol>
-      <p class="tiny" style="margin-top:auto">Ernest Scheyder, <em>The War Below</em> &middot; Olive Heffernan, <em>The High Seas</em>, ch. 1, 4, 12</p></div>`);
+      <ol>${DEBRIEF.questions.map((q) => `<li>${esc(q)}</li>`).join("")}</ol></div>`);
   $("#again").onclick = reset;
 }
 
