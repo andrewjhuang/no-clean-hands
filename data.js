@@ -404,6 +404,109 @@ const CHAPTERS = [
   }
 ];
 
+
+/* ------------------------------------------------------------------
+   FLOOR EVENTS
+   When a meter hits zero, the next screen is an emergency decision
+   inserted into the running order — not a skipped round. Both options
+   are bad; that is the point. Capped at one per case so a bad run gets
+   longer without getting unplayable.
+------------------------------------------------------------------- */
+const FLOORS = {
+  env: {
+    place: "The injunction", year: "Emergency",
+    situation: "A court halts all work pending review after the third consecutive exceedance. Your own monitoring data is the evidence. Nothing proceeds until you answer for it.",
+    ask: "Fight it or wear it.",
+    voices: [{ who: "Counsel", role: "your own lawyer", line: "We can win this. I want to be clear that winning it and being right are different projects." }],
+    detail: [
+      "Injunctions in extraction cases almost never come from the first breach. They come from a documented pattern, which is what your monitoring produced.",
+      "Remediation costs more than prevention would have, every time, without exception."
+    ],
+    discuss: [
+      "Was this foreseeable three rounds ago?",
+      "Is appealing a legitimate defence or a delaying tactic? Does it matter which?",
+      "What would have had to be true for your council to stop before a court did?"
+    ],
+    choices: [
+      { key: "A", label: "Appeal and continue", sub: "You will probably win. It will take two years.",
+        d: { econ: 10, env: -6, trust: -10 }, vio: ["reversible"],
+        out: { t: "Stayed on appeal", x: "The stay is granted and work resumes within the quarter. The exceedance record is now a permanent exhibit, cited against every project your council touches afterwards." } },
+      { key: "B", label: "Accept it and remediate", sub: "Stop, pay, fix what can be fixed.",
+        d: { econ: -16, env: 12, trust: 6 }, up: ["reversible"],
+        out: { t: "Work stops", x: "Remediation costs roughly four times what prevention would have, which is the standard ratio. The habitat partially recovers. The schedule does not." } }
+    ]
+  },
+  comm: {
+    place: "The withdrawal", year: "Emergency",
+    situation: "The affected community formally withdraws from the proceeding. They will not consult, will not sit, and will not be photographed doing either. A UN special rapporteur requests the file.",
+    ask: "Proceed without them, or stop and start over.",
+    voices: [{ who: "Ruth, 70", role: "Apache elder", line: "We came to every meeting for nine years. You can hold the tenth one without us. Nothing about it will be different." }],
+    detail: [
+      "Withdrawal is the last instrument available to a party with no veto. It removes the appearance of consent, which is often the only thing the process was producing.",
+      "A record with no community participation is legally sufficient in most jurisdictions and politically radioactive in all of them."
+    ],
+    discuss: [
+      "Is a consultation nobody attends still a consultation?",
+      "What did the process give them that walking away takes back?",
+      "Could your council have earned a different answer, or only delayed this one?"
+    ],
+    choices: [
+      { key: "A", label: "Proceed on the record you have", sub: "It is legally sufficient.",
+        d: { econ: 8, comm: -6, trust: -14 }, vio: ["consent"],
+        out: { t: "Quorum of one", x: "The permit issues against a record with an empty chair in it. Every subsequent challenge begins by pointing at that chair, and every one of them is right to." } },
+      { key: "B", label: "Suspend and renegotiate", sub: "From the beginning, on their terms.",
+        d: { econ: -18, comm: 16, trust: 8 }, up: ["consent"],
+        out: { t: "Back to the beginning", x: "Eighteen months of talks produce a narrower project and a document both sides sign. The developer calls it extortion in a filing and signs it. Two of your deadlines are now unreachable." } }
+    ]
+  },
+  trust: {
+    place: "The charter is struck", year: "Emergency",
+    situation: "Your own charter has been struck from the record. The council has broken it often enough that the secretariat no longer treats it as binding, and neither does anyone appearing before you.",
+    ask: "Govern without it, or buy one principle back.",
+    voices: [{ who: "Secretariat", role: "clerk of the council", line: "I am required to record what the council commits to. I am no longer able to record this as a commitment." }],
+    detail: [
+      "A charter stops working the moment it becomes a thing the body recites rather than a thing it can be held to.",
+      "Re-adopting a principle after breaking it costs more than adopting it the first time, because now it has to be bought rather than declared."
+    ],
+    discuss: [
+      "What is a principle worth once it has been broken and re-adopted?",
+      "Is a council with no charter worse than a council that never wrote one?",
+      "Who did your charter actually protect, while it lasted?"
+    ],
+    choices: [
+      { key: "A", label: "Govern without a charter", sub: "Decide case by case. Nothing binds you.",
+        d: { econ: 12, trust: -4 }, flag: "charter_void",
+        out: { t: "Unbound", x: "Decisions get faster and better-argued, because nothing has to be reconciled with anything. Your remaining rounds are scored against nothing, which is exactly as freeing and as weightless as it sounds." } },
+      { key: "B", label: "Buy one principle back", sub: "Re-adopt a single rule, and pay for it.",
+        d: { econ: -14, trust: 14 }, flag: "charter_rebought",
+        out: { t: "One rule, repurchased", x: "You drop to a single binding principle and fund an independent compliance office to hold you to it. It costs a quarter of the programme's remaining budget. It is also the only reason anybody appears before you in good faith again." } }
+    ]
+  },
+  econ: {
+    place: "The financing collapses", year: "Emergency",
+    situation: "The project cannot raise another round. The conditions you attached are defensible individually and fatal in aggregate. The metal is still needed; the question is only where it now comes from.",
+    ask: "Buy it from somewhere you cannot inspect, or go without.",
+    voices: [{ who: "Hal, 48", role: "grid engineer", line: "I do not care where the copper comes from. That is not a moral position, it is a job description." }],
+    detail: [
+      "Projects are rarely killed by refusal. They are killed by conditions, which is a refusal that nobody has to sign.",
+      "Demand does not fall when supply does. It relocates."
+    ],
+    discuss: [
+      "Did your council refuse this project, or condition it to death? Is there a difference worth defending?",
+      "Is buying from an uninspectable jurisdiction worse than mining badly at home?",
+      "Who bears the cost of going without?"
+    ],
+    choices: [
+      { key: "A", label: "Buy on the open market", sub: "Cheap, fast, and nobody you can audit.",
+        d: { econ: 14, env: -14, comm: -8 }, vio: ["benefit", "reversible"],
+        out: { t: "Sourced elsewhere", x: "The tonnage arrives within two quarters at a price your treasury likes. The tailings go into a bay three villages fish, in a jurisdiction where your council has no standing and your charter has no meaning." } },
+      { key: "B", label: "Go without", sub: "Accept the deficit and say so publicly.",
+        d: { econ: -8, env: 10, comm: 4, trust: 8 }, up: ["reversible"],
+        out: { t: "The deficit", x: "You publish the shortfall rather than hide it, which is unusual enough to be quoted for years. Eleven states miss grid deadlines and the emissions avoided by not mining are smaller than the emissions caused by not electrifying." } }
+    ]
+  }
+};
+
 /* --------------------------------------------------------- endings -- */
 /* Hypocrisy is the failure condition, not low meters. */
 const ENDINGS = [

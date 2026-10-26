@@ -19,6 +19,15 @@ seabed. Round 6 branches on whether the council sponsored mining or backed
 a moratorium; abstaining in round 5 skips it entirely, which is its own
 consequence.
 
+**Floor events.** When a meter hits zero, an emergency decision is
+*inserted* into the running order rather than a round being skipped: the
+crisis costs you a slot you didn't plan for and both options are bad.
+Environment zero brings an injunction, Communities zero a formal
+withdrawal, Economy zero a financing collapse, and Trust zero strikes the
+charter from the record — after which breaches stop scoring at all, unless
+you buy a single principle back. Capped at one per case, so a careful
+council plays nine rounds and a reckless one plays ten or eleven.
+
 Hand-inked SVG art that reacts to each decision, Inter for all text,
 everything inside one viewport.
 ## Running it in class

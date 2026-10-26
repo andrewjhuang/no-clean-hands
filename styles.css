@@ -433,3 +433,10 @@ kbd { font-family: inherit; font-weight: 700; border: 2px solid var(--ink); bord
   .pick .lb, .pick .tx b { font-size: clamp(12.5px, 1.2vw, 16px); }
   .voice .said { font-size: clamp(10.5px, 1vw, 13.5px); }
 }
+
+/* a meter bottoming out inserts an unscheduled decision */
+.floorflag {
+  font-size: clamp(10px,.95vw,13px); font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+  background: var(--ink); color: var(--paper); border: 3px solid var(--ink); padding: 4px 9px; align-self: flex-start;
+}
+.pr-chip.void { opacity: .45; text-decoration: line-through; background: var(--paper2); color: var(--ink-soft); }

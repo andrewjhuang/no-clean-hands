@@ -10,6 +10,11 @@ const G = {
   flags: new Set(), record: [],
   secs: 120, left: 0, tick: null,
   p: {}, artKey: "title", artVar: "base",
+  pending: null,          // an emergency decision queued by a floor event
+  inFloor: false,         // true while an emergency round and its outcome are on screen
+  floored: [],            // meters that have already bottomed out
+  floorsThisCase: 0,      // capped at one per case
+  charterVoid: false,
 };
 
 const $ = (q) => document.querySelector(q);
@@ -18,7 +23,7 @@ const cl = (n) => Math.max(0, Math.min(100, n));
 const addD = (a, b) => { Object.entries(b || {}).forEach(([k, v]) => (a[k] = (a[k] || 0) + v)); return a; };
 const setFlags = (f) => { if (f) String(f).split(",").forEach((x) => x.trim() && G.flags.add(x.trim())); };
 const principle = (id) => PRINCIPLES.find((p) => p.id === id);
-const adopted = (ids) => (ids || []).filter((x) => G.charter.includes(x));
+const adopted = (ids) => G.charterVoid ? [] : (ids || []).filter((x) => G.charter.includes(x));
 
 function avatar(seed) {
   const f = [...String(seed)].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -49,14 +54,17 @@ function bar() {
   }
   const c = CHAPTERS[Math.max(0, G.ch)];
   const done = G.phase === "end" || G.phase === "debrief";
-  const label = done ? "Verdict" : c.id === "charter" ? "Charter" : `${c.title.split(":")[0]} · ${G.b + 1}/${G.beats.length}`;
+  const label = done ? "Verdict"
+    : G.inFloor ? "Emergency"
+    : c.id === "charter" ? "Charter"
+    : `${c.title.split(":")[0]} · ${G.b + 1}/${G.beats.length}`;
   return `<header class="top">
     <span class="mark">No Clean <em>Hands</em></span>
     <span class="step">${esc(label)}</span>
     ${G.charter.length ? `<span class="charter">${G.charter.map((id) => {
       const p = principle(id);
       const broke = G.breaches.some((x) => x.principle === id);
-      return `<span class="pr-chip ${broke ? "broke" : ""}" title="${esc(p.rule)}">${esc(p.label)}${broke ? " ✕" : ""}</span>`;
+      return `<span class="pr-chip ${G.charterVoid ? "void" : broke ? "broke" : ""}" title="${esc(p.rule)}">${esc(p.label)}${broke ? " ✕" : ""}</span>`;
     }).join("")}</span>` : ""}
     <span class="grow"></span>
     <div class="gauges">${METERS.map((m) => `
@@ -94,7 +102,7 @@ function title() {
 function chapter() {
   const c = CHAPTERS[G.ch];
   if (!c) return ending();
-  G.phase = "intro"; G.b = 0;
+  G.phase = "intro"; G.b = 0; G.floorsThisCase = 0;
   G.beats = c.beats.filter((b) => !b.requires || G.flags.has(b.requires));
   G.artKey = c.art; G.artVar = "base"; G.p = {};
   document.body.dataset.realm = c.realm;
@@ -109,19 +117,21 @@ function chapter() {
       }).join("")}</div>` : ""}
     </div>
     <div class="controls"><button class="btn" id="go">${c.id === "charter" ? "Write it" : "Open the case"} &rarr;</button></div>`);
-  $("#go").onclick = beat;
+  $("#go").onclick = () => beat();
 }
 
 /* --------------------------------------------------------------- beat */
-function beat() {
-  const b = G.beats[G.b];
+function beat(forced) {
+  const b = forced || G.beats[G.b];
   if (!b) { G.ch++; return chapter(); }
+  G.inFloor = !!(forced && forced.isFloor);
   G.phase = "beat";
   G.artKey = b.art || CHAPTERS[G.ch].art; G.artVar = "base";
   G.p = b.type === "slider" ? { [b.slider.key]: b.slider.start }
       : b.type === "spend" || b.type === "charter" ? { chosen: [] } : {};
 
   shell(`<div class="scroll">
+      ${b.isFloor ? `<div class="floorflag">${esc(METERS.find((m) => m.key === b.meter).label)} hit zero &middot; unscheduled decision</div>` : ""}
       <div class="where"><h2>${esc(b.place)}</h2><span class="yr">${esc(b.year)}</span></div>
       <p class="situation">${esc(b.situation)}</p>
       ${(b.voices || []).map((v) => `<div class="voice"><span class="av">${avatar(v.who)}</span>
@@ -206,6 +216,8 @@ function wire(b) {
     document.querySelectorAll(".pick").forEach((el) => (el.onclick = () => {
       const c = b.choices[+el.dataset.i];
       setFlags(c.flag);
+      if (c.flag === "charter_void") G.charterVoid = true;
+      if (c.flag === "charter_rebought") { G.charter = G.charter.slice(0, 1); G.charterVoid = false; }
       land(b, c.key, c.out.t, c.out.x, Object.assign({}, c.d), c.label, c.vio, c.up);
     }));
     return;
@@ -285,6 +297,16 @@ function land(b, variant, t, x, d, stampText, vioRaw, upRaw) {
   vio.forEach((p) => G.breaches.push({ place: b.place, principle: p, label: stampText }));
 
   Object.keys(START).forEach((k) => { if (d[k]) G.s[k] = cl(G.s[k] + d[k]); });
+
+  // a meter hitting zero inserts an emergency decision rather than skipping one
+  if (!b.isFloor && G.floorsThisCase < 1) {
+    const hit = Object.keys(START).find((k) => G.s[k] === 0 && !G.floored.includes(k) && FLOORS[k]);
+    if (hit) {
+      G.floored.push(hit);
+      G.floorsThisCase += 1;
+      G.pending = Object.assign({ type: "choice", isFloor: true, meter: hit, art: CHAPTERS[G.ch].art }, FLOORS[hit]);
+    }
+  }
   G.record.push({ place: b.place, label: stampText, vio, up });
   G.phase = "outcome"; G.artVar = variant;
 
@@ -307,6 +329,7 @@ function land(b, variant, t, x, d, stampText, vioRaw, upRaw) {
   if (vio.length || (d.env || 0) + (d.comm || 0) < -18) setTimeout(() => layer.classList.add("shake"), 300);
   bump(d);
   $("#next").onclick = () => {
+    if (G.pending) { const em = G.pending; G.pending = null; return beat(em); }
     G.beats = CHAPTERS[G.ch].beats.filter((x) => !x.requires || G.flags.has(x.requires));
     G.b++;
     if (G.b >= G.beats.length) { G.ch++; if (G.ch >= CHAPTERS.length) return ending(); return chapter(); }
@@ -352,6 +375,7 @@ function reset() {
   stop();
   G.ch = -1; G.b = 0; G.beats = []; G.s = Object.assign({}, START);
   G.charter = []; G.breaches = []; G.flags = new Set(); G.record = []; G.p = {};
+  G.pending = null; G.floored = []; G.floorsThisCase = 0; G.charterVoid = false; G.inFloor = false;
   title();
 }
 
