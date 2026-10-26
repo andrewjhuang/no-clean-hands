@@ -340,6 +340,6 @@ function drawScene(key, variant = "base", params = {}) {
         <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
     </defs>
-    <g filter="url(#wob)" font-family="'Shantell Sans', system-ui, sans-serif">${fn(variant, params)}</g>
+    <g filter="url(#wob)" font-family="'Inter', system-ui, sans-serif">${fn(variant, params)}</g>
   </svg>`;
 }

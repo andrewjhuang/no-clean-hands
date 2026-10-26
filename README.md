@@ -1,28 +1,26 @@
 # No Clean Hands
 
-A 25-minute classroom decision game about critical minerals and the deep sea,
-built on Ernest Scheyder's *The War Below* (2024) and Olive Heffernan's
-*The High Seas* (2024), ch. 1, 4 and 12.
+A 30-minute classroom decision game. The class forms an international
+resource council and hears **two real extraction cases**: the Resolution
+Copper project under Apache ceremonial ground at Oak Flat, from Ernest
+Scheyder's *The War Below*; and nodule mining in the Clarion-Clipperton
+Zone, from Olive Heffernan's *The High Seas*.
 
-A class plays as one body: the council that decides where the metal comes
-from. **Four chapters, three decisions each.**
+**The charter is the spine.** Before hearing anything, the council adopts
+**two of four principles** — Consent, Reversibility, Supply, Benefit. Every
+later option is tagged with the principles it keeps or breaks, and breaking
+one you adopted costs far more than breaking one you never signed. The
+second case quotes the first one back. The ending is scored on breaches,
+not on meters: hypocrisy is the failure condition.
 
-**The economy is the argument.** You get ten coins for the whole game and
-never get more. Nearly everything that protects a person or a place costs
-coins; nearly everything that harms them is free. You also owe the grid
-**70 units of metal by 2034**, and compromising in every chapter lands you
-around 35. Being moderate everywhere fails. You have to decide where the
-harm goes, which is the thing both books are actually about.
+Four meters carry across both cases — environment, economy, communities,
+trust. Nine decisions: the charter, four rounds on Oak Flat, four on the
+seabed. Round 6 branches on whether the council sponsored mining or backed
+a moratorium; abstaining in round 5 skips it entirely, which is its own
+consequence.
 
-Four shapes of decision — pick one of three, buy what you can afford from
-four competing demands, a continuous slider, and a budget split. The
-drawing reacts live as you choose, before anything is locked in: the fence
-slides and the flowers die as you drag, coin stacks rise, the people you
-funded get a tag over their heads and the ones you didn't walk off.
-
-Six endings, keyed on whether you hit the number and what it cost. The last
-screen names what happened to each of the six people by the flags you set.
-
+Hand-inked SVG art that reacts to each decision, Inter for all text,
+everything inside one viewport.
 ## Running it in class
 
 Open the page, pick a discussion clock (90s / 2min / 3min / none), project it.
@@ -40,12 +38,17 @@ Timing: ~1 min intro, four chapter cards, twelve decisions at ~2 min, ~5 min deb
 
 ## Structure
 
-| Chapter | Decisions | Themes |
+| Round | Decision | Themes |
 |----|-------|--------|
-| Nevada | Who you pay for at Thacker Pass · the protest camp · the buckwheat fence | Sacred sites, the 1872 Mining Law, jobs, groundwater, endangered species |
-| Arizona | The Oak Flat swap · what you owe afterwards · the subsidence schedule | Religious freedom, block caving, compensation, copper for the grid |
-| The market | Six billion three ways · the layoff · the cheap dirty tonne | Industrial policy, refining concentration, offshored harm |
-| The deep | ISA or alone or moratorium · the plume *or* the vacuum · the last coins | Common heritage, UNCLOS, small-state development, benefit sharing |
+| 0 | Adopt two of four principles | Consent, precaution, supply security, benefit sharing |
+| 1 | Execute, suspend or rewrite the land exchange | A 2014 defence-bill rider; block caving; 25% of US copper |
+| 2 | Conditions after Juukan Gorge | Operator record, enforceable permits vs. press releases |
+| 3 | Years of surface access guaranteed | Discretion after the courts stop requiring restraint |
+| 4 | The tailings facility | Deferred risk, dry stack vs. conventional |
+| 5 | Sponsor, pause, or abstain at the Authority | Common heritage, the lapsed two-year rule |
+| 6 | The plume *or* the vacuum | Precaution, dark oxygen, enforcement of a partial pause |
+| 7 | The route outside the Authority | US non-ratification, the 1980 statute, regime collapse |
+| 8 | Who the benefit fund pays | Sponsoring-state liability, Nauru's phosphate precedent |
 
 ## Accuracy
 
