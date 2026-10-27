@@ -112,7 +112,9 @@ Timing: four chapter cards, twelve decisions at ~2 min, ~5 min debrief ≈ 30 mi
   `budget`), and `land()` applies the deltas.
 - `art.js` — scenes composed from primitives (`fig`, `cloud`, `digger`,
   `nodules`, `collector`…). `inPhase()` is what keeps the sky moving.
-- `fonts/` — self-hosted, so a projector never waits on Google Fonts.
+- `fonts/` — Shantell Sans, self-hosted (OFL, licence included), so a projector
+  never waits on Google Fonts. It is the hand-drawn face the art is drawn to
+  match; without it the page falls back to Comic Sans.
 
 ## Local and deploy
 
