@@ -1,6 +1,12 @@
 /* NO CLEAN HANDS — engine.
-   Two cases, eight rounds, one charter. Breaking a principle you adopted
-   is the expensive thing; the ending is scored on that, not on meters. */
+   Two live permits, ten rounds, one charter, and a loop.
+
+   Three things are being tracked at once. Breaking a principle you
+   adopted is the expensive one. Funding the six solutions is the slow
+   one — each matures on a delay. And the forecast is the cruel one: it
+   is revised down every round, partly by the market and partly by you,
+   while the mine you approved takes six years to build. Approve
+   something that lands under the line and you have bought a hole. */
 
 const G = {
   ch: -1, b: 0, beats: [], phase: "title",
@@ -15,7 +21,22 @@ const G = {
   floored: [],            // meters that have already bottomed out
   floorsThisCase: 0,      // capped at one per case
   charterVoid: false,
+
+  /* the loop, from RMI's six solutions */
+  loop: {},          // solution id -> rounds left until it matures (0 = landed)
+  loopFunded: [],    // every solution funded at least once, for the ending
+  matured: [],       // solutions that have shown up in the forecast
+  /* the forecast the room watches */
+  demand: 100,       // projected net demand at first ore, indexed to the mine plan
+  demandLog: [100],  // the curve
+  lastRevision: 0,   // this round's revision, for the arrow
+  oreLeft: null,     // years to first ore in the active case
+  oreLabel: null,
 };
+
+/* How much the forecast falls each round with no help from you: the
+   chemistry and density improvements the market makes anyway. */
+const DRIFT = 3;
 
 const $ = (q) => document.querySelector(q);
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -24,6 +45,49 @@ const addD = (a, b) => { Object.entries(b || {}).forEach(([k, v]) => (a[k] = (a[
 const setFlags = (f) => { if (f) String(f).split(",").forEach((x) => x.trim() && G.flags.add(x.trim())); };
 const principle = (id) => PRINCIPLES.find((p) => p.id === id);
 const adopted = (ids) => G.charterVoid ? [] : (ids || []).filter((x) => G.charter.includes(x));
+
+/* a beat appears if ANY of its required flags is set */
+const passes = (b) => !b.requires || String(b.requires).split(",").some((f) => G.flags.has(f.trim()));
+
+/* The council has committed capital to a hole that is not finished yet.
+   The two deposits are NOT equally exposed, and pretending otherwise
+   would be the one unforgivable simplification in this game. RMI finds
+   announced projects already cover projected peak demand for cobalt and
+   nickel with no gap at all; only lithium shows one, around 23%, and
+   only in the fastest-uptake case. So a cobalt nodule project goes under
+   water far earlier than a lithium project does. */
+const SEABED = ["cook_open"];
+const LAND = ["jadar_fast", "jadar_public", "jadar_refine"];
+const committed = () => [...SEABED, ...LAND].some((f) => G.flags.has(f));
+const underwater = () =>
+  (SEABED.some((f) => G.flags.has(f)) && G.demand < 78) ||
+  (LAND.some((f) => G.flags.has(f)) && G.demand < 56);
+
+function creditLoop(id) {
+  const s = LOOP.find((x) => x.id === id);
+  if (!s) return;
+  if (!G.loopFunded.includes(id)) G.loopFunded.push(id);
+  // funding the same solution twice shortens the wait; it does not stack a second cut
+  G.loop[id] = G.loop[id] === undefined ? s.lead : Math.min(G.loop[id], 1);
+}
+
+/* one round of clock: solutions mature, the forecast is revised, the
+   shaft gets a year closer to ore it may not need */
+function tickRound() {
+  const landed = [];
+  Object.keys(G.loop).forEach((id) => {
+    if (G.loop[id] > 0 && --G.loop[id] === 0) landed.push(id);
+  });
+  let cut = 0;
+  landed.forEach((id) => {
+    if (!G.matured.includes(id)) { G.matured.push(id); cut += LOOP.find((x) => x.id === id).cut; }
+  });
+  G.lastRevision = DRIFT + cut;
+  G.demand = Math.max(8, G.demand - G.lastRevision);
+  G.demandLog.push(G.demand);
+  if (G.oreLeft !== null && G.oreLeft > 0) G.oreLeft -= 1;
+  return landed;
+}
 
 function avatar(seed) {
   const f = [...String(seed)].reduce((a, c) => a + c.charCodeAt(0), 0);
@@ -38,14 +102,47 @@ function avatar(seed) {
 /* -------------------------------------------------------------- shell */
 function shell(panel, extra = "") {
   document.body.innerHTML = `${bar()}
-    <main class="stage">
+    <main class="stage${G.phase === "debrief" ? " solo" : ""}">
       <section class="art"><div class="plate" id="art">
         <div class="layer" id="artlayer">${drawScene(G.artKey, G.artVar, G.p)}</div>${extra}
-      </div></section>
+      </div>${hud()}</section>
       <section class="panel ${G.phase === "outcome" ? "mid" : ""}">${panel}</section>
     </main>`;
 }
 const paintArt = () => { const l = $("#artlayer"); if (l) l.innerHTML = drawScene(G.artKey, G.artVar, G.p); };
+
+/* ---------------------------------------------------------------- hud */
+/* The instruments live inside the picture: a forecast that keeps being
+   revised, a countdown to ore, and six arcs that fill as the loop
+   closes. Everything anxious about this game is in this one box. */
+function hud() {
+  if (["title", "end", "debrief"].includes(G.phase)) return "";
+  const W = 120, H = 32, n = G.demandLog.length;
+  const pts = G.demandLog
+    .map((v, i) => `${((i / Math.max(1, n - 1)) * W).toFixed(1)},${(H - (v / 100) * H).toFixed(1)}`)
+    .join(" ");
+  const ore = G.oreLeft !== null;
+  return `<div class="hud ${underwater() ? "danger" : ""}">
+    <div class="hudtop">
+      <svg class="spark" viewBox="-2 -2 ${W + 4} ${H + 4}" aria-hidden="true">
+        <line class="plan" x1="0" y1="${(H * 0.4).toFixed(1)}" x2="${W}" y2="${(H * 0.4).toFixed(1)}"/>
+        <polyline points="${pts}"/>
+        <circle cx="${((n - 1) / Math.max(1, n - 1) * W).toFixed(1)}" cy="${(H - (G.demand / 100) * H).toFixed(1)}" r="2.6"/>
+      </svg>
+      <div class="hudnum">
+        <b>${G.demand}</b>
+        ${G.lastRevision ? `<em>&minus;${G.lastRevision}</em>` : ""}
+        <i>net demand at ${esc(G.oreLabel || "first ore")}</i>
+      </div>
+    </div>
+    ${ore ? `<div class="hudore ${G.oreLeft <= 2 ? "near" : ""}">${G.oreLeft} ${G.oreLeft === 1 ? "year" : "years"} to ${esc(G.oreLabel || "first ore")}</div>` : ""}
+    <div class="ring" title="The loop: six solutions, funded and matured">
+      ${LOOP.map((s) => `<span class="seg ${G.matured.includes(s.id) ? "on" : G.loop[s.id] !== undefined ? "pending" : ""}"
+        title="${esc(s.label)} — ${G.matured.includes(s.id) ? "landed" : G.loop[s.id] !== undefined ? `matures in ${G.loop[s.id]}` : "not funded"}">${esc(s.letter)}</span>`).join("")}
+    </div>
+    ${underwater() ? `<div class="hudwarn">lands below plan</div>` : ""}
+  </div>`;
+}
 
 function bar() {
   if (G.phase === "title") {
@@ -103,8 +200,9 @@ function chapter() {
   const c = CHAPTERS[G.ch];
   if (!c) return ending();
   G.phase = "intro"; G.b = 0; G.floorsThisCase = 0;
-  G.beats = c.beats.filter((b) => !b.requires || G.flags.has(b.requires));
+  G.beats = c.beats.filter(passes);
   G.artKey = c.art; G.artVar = "base"; G.p = {};
+  if (c.ore) { G.oreLeft = c.ore.years; G.oreLabel = c.ore.label; }
   document.body.dataset.realm = c.realm;
   shell(`<div class="scroll">
       <div class="where"><h2>${esc(c.title)}</h2><span class="yr">${esc(c.sub)}</span></div>
@@ -236,7 +334,11 @@ function wire(b) {
       const picked = b.options.filter((o) => G.p.chosen.includes(o.id));
       const missed = b.options.filter((o) => !G.p.chosen.includes(o.id) && o.no);
       const d = {}, vio = [], up = [];
-      picked.forEach((o) => { addD(d, o.d); setFlags(o.flag); (o.vio || []).forEach((x) => vio.push(x)); (o.up || []).forEach((x) => up.push(x)); });
+      picked.forEach((o) => {
+        addD(d, o.d); setFlags(o.flag);
+        if (o.loop) creditLoop(o.loop);
+        (o.vio || []).forEach((x) => vio.push(x)); (o.up || []).forEach((x) => up.push(x));
+      });
       G.p.locked = true;
       land(b, "base", picked.length ? "What you attached" : "You attached nothing",
         [...picked.map((o) => o.yes), ...missed.map((o) => o.no)].filter(Boolean).join(" ") ||
@@ -262,6 +364,27 @@ function wire(b) {
       land(b, "base", band.t, band.x, Object.assign({}, band.d), `${G.p[b.slider.key]}${b.slider.unit}`, band.vio, band.up);
     };
   }
+}
+
+/* ----------------------------------------------------------- forecast */
+/* What the round did to the number nobody in the room is watching. */
+function forecast(landed) {
+  if (!landed) return "";
+  const out = [];
+  if (G.lastRevision) {
+    out.push(`<div class="fc">Forecast revised <b>&minus;${G.lastRevision}</b> &middot;
+      net demand at ${esc(G.oreLabel || "first ore")} is now <b>${G.demand}</b>${
+      G.oreLeft !== null ? ` &middot; ${G.oreLeft} ${G.oreLeft === 1 ? "year" : "years"} left to build` : ""}</div>`);
+  }
+  landed.forEach((id) => {
+    const s = LOOP.find((x) => x.id === id);
+    out.push(`<div class="fcmature"><b>${esc(s.letter)} &middot; ${esc(s.label)}</b> ${esc(s.matured)}</div>`);
+  });
+  if (underwater()) {
+    out.push(`<div class="fcwarn">First ore now lands below the plan it was approved on.
+      Whatever the valley gave up, it gave up for a tonne nobody has ordered.</div>`);
+  }
+  return out.join("");
 }
 
 /* -------------------------------------------------------------- sheets */
@@ -297,6 +420,7 @@ function land(b, variant, t, x, d, stampText, vioRaw, upRaw) {
   vio.forEach((p) => G.breaches.push({ place: b.place, principle: p, label: stampText }));
 
   Object.keys(START).forEach((k) => { if (d[k]) G.s[k] = cl(G.s[k] + d[k]); });
+  const landed = b.isFloor ? [] : tickRound();
 
   // a meter hitting zero inserts an emergency decision rather than skipping one
   if (!b.isFloor && G.floorsThisCase < 1) {
@@ -320,6 +444,7 @@ function land(b, variant, t, x, d, stampText, vioRaw, upRaw) {
       ${up.length && !vio.length ? `<div class="upheld">Charter upheld &middot; ${up.map((p) => esc(principle(p).label)).join(", ")}</div>` : ""}
       <p class="outcome-x">${esc(x)}</p>
       <div class="deltas">${chips}</div>
+      ${forecast(landed)}
     </div>
     <div class="controls"><button class="btn" id="next">Next</button></div>`,
     `<div class="stamp">${esc(stampText)}</div>`);
@@ -330,7 +455,7 @@ function land(b, variant, t, x, d, stampText, vioRaw, upRaw) {
   bump(d);
   $("#next").onclick = () => {
     if (G.pending) { const em = G.pending; G.pending = null; return beat(em); }
-    G.beats = CHAPTERS[G.ch].beats.filter((x) => !x.requires || G.flags.has(x.requires));
+    G.beats = CHAPTERS[G.ch].beats.filter(passes);
     G.b++;
     if (G.b >= G.beats.length) { G.ch++; if (G.ch >= CHAPTERS.length) return ending(); return chapter(); }
     beat();
@@ -341,13 +466,16 @@ function land(b, variant, t, x, d, stampText, vioRaw, upRaw) {
 function ending() {
   G.phase = "end";
   const n = G.breaches.length;
-  const e = ENDINGS.find((x) => x.test(G.s, n)) || ENDINGS[ENDINGS.length - 1];
+  const L = { closed: G.loopFunded.length, matured: G.matured.length, stranded: underwater() };
+  const e = ENDINGS.find((x) => x.test(G.s, n, L)) || ENDINGS[ENDINGS.length - 1];
   G.artKey = e.art; G.artVar = "base"; G.p = {};
-  document.body.dataset.realm = G.flags.has("sea_mine") || G.flags.has("reversed") ? "sea" : "land";
+  document.body.dataset.realm = G.flags.has("cook_open") || G.flags.has("cook_now") ? "sea" : "land";
   shell(`<div class="scroll">
       <div class="where"><h2>${esc(e.title)}</h2><span class="yr">Verdict</span></div>
       <p class="tally">Charter: <b>${G.charter.map((id) => esc(principle(id).label)).join(" + ")}</b> &nbsp;·&nbsp;
-        <b class="${n ? "bad" : "ok"}">${n} ${n === 1 ? "breach" : "breaches"}</b></p>
+        <b class="${n ? "bad" : "ok"}">${n} ${n === 1 ? "breach" : "breaches"}</b> &nbsp;·&nbsp;
+        loop <b class="${L.closed >= 4 ? "ok" : L.closed ? "" : "bad"}">${L.closed}/6 funded</b>,
+        ${L.matured} landed &nbsp;·&nbsp; forecast <b>${G.demand}</b></p>
       <p class="situation">${esc(e.text)}</p>
       ${n ? `<div class="fates">${G.breaches.slice(0, 3).map((x) => `<div><b>${esc(principle(x.principle).label)}</b> broken at ${esc(x.place)}</div>`).join("")}
         ${n > 3 ? `<div><b>and ${n - 3} more</b> across the two cases</div>` : ""}</div>` : ""}
@@ -376,6 +504,8 @@ function reset() {
   G.ch = -1; G.b = 0; G.beats = []; G.s = Object.assign({}, START);
   G.charter = []; G.breaches = []; G.flags = new Set(); G.record = []; G.p = {};
   G.pending = null; G.floored = []; G.floorsThisCase = 0; G.charterVoid = false; G.inFloor = false;
+  G.loop = {}; G.loopFunded = []; G.matured = [];
+  G.demand = 100; G.demandLog = [100]; G.lastRevision = 0; G.oreLeft = null; G.oreLabel = null;
   title();
 }
 
@@ -384,7 +514,7 @@ document.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (k === " " || k === "enter") { const b = $("#go") || $("#next") || $("#deb"); if (b) { e.preventDefault(); b.click(); } return; }
   if (k === "t" && G.phase === "beat") { $("#talk")?.click(); return; }
-  if (G.phase === "beat" && ["1", "2", "3", "4"].includes(k)) {
+  if (G.phase === "beat" && ["1", "2", "3", "4", "5", "6"].includes(k)) {
     (document.querySelector(`.pick[data-i="${+k - 1}"]`) || document.querySelector(`.card[data-i="${+k - 1}"]`))?.click();
   }
   if (k === "r" && (G.phase === "end" || G.phase === "debrief")) reset();
