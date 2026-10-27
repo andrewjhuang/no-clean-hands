@@ -105,27 +105,6 @@ const oak = (x, y, s = 1, alive = true) =>
         fill="${alive ? C.teal : C.grey}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/></g>`;
 
 /* ------------------------------------------------------------- sea */
-/* a raspberry cane: the valley's actual export */
-const rasp = (x, y, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})">
-  ${P("M0 0v-44", "#4a7a3a", 5)}${P("M0-20l-16-12M0-30l16-12", "#4a7a3a", 4)}
-  ${CIRC(-4, -52, 7, C.red, C.ink, 3)}${CIRC(9, -44, 6, C.red, C.ink, 3)}</g>`;
-
-/* an exploration rig: the thing that found it in 2004 */
-const rig = (x, y, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})">
-  ${P("M-26 0L0-78 26 0", C.ink, 5)}${P("M-16-48h32M-21-24h42", C.ink, 4)}${P("M0-78v-16", C.ink, 5)}</g>`;
-
-/* a filed document, for the rounds decided on paper */
-const doc = (x, y, label) => `<g transform="translate(${x} ${y})">
-  <rect x="-54" y="-38" width="108" height="76" rx="4" fill="#fff" stroke="${C.ink}" stroke-width="5"/>
-  ${P("M-36-18h72M-36-2h72M-36 14h44", "#9b9280", 4)}
-  ${TXT(0, 60, label, 15, C.ink)}</g>`;
-
-/* an island with a reef, seen from above-ish */
-const atoll = (x, y, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})">
-  <ellipse cx="0" cy="0" rx="62" ry="26" fill="#8fd4c4" stroke="${C.ink}" stroke-width="5"/>
-  <ellipse cx="0" cy="-4" rx="34" ry="14" fill="${C.sand}" stroke="${C.ink}" stroke-width="4"/>
-  ${P("M-10-8v-24", "#4a7a3a", 4)}${P("M-10-32l-13-7M-10-32l13-7M-10-30l0-12", "#4a7a3a", 4)}</g>`;
-
 const nodules = (y, n = 16, seed = 3) => {
   let out = "";
   for (let i = 0; i < n; i++) {
@@ -180,43 +159,13 @@ const coins = (x, y, units, color, label) => {
 };
 
 /* --------------------------------------------------------- scenes */
-/* ------------------------------------------------------------------
-   Six scenes. Two of them do the work.
-
-   Both case scenes read the SAME inputs — p.actRound (how far through
-   the act we are) and p.needs (how each of the six interests is faring)
-   — and both draw the same six figures in the same order along the
-   bottom. The valley and the seafloor are deliberately the same
-   picture with the water raised. That is the argument of the game,
-   made in the art rather than in a paragraph.
-
-   Everything ambient is animated: clouds drift, water breathes,
-   machines work, fish swim, dust puffs. The progression (pit depth,
-   collector descent, plume spread) advances with actRound, so the
-   picture changes as the class argues even when nothing is clicked.
-------------------------------------------------------------------- */
-
-/* a figure whose posture is its need: 0 starved, 4 fully met */
-const stakeFig = (x, y, need, col = C.ink, s = 1) => {
-  const pose = need <= 0 ? "walkaway" : need === 1 ? "sad" : need >= 4 ? "cheer" : need >= 3 ? "armsup" : "stand";
-  const cls = need >= 4 ? "anim-hop" : need <= 0 ? "anim-drift" : "";
-  return fig(x, y, s, pose, need <= 0 ? "#9b9280" : col, cls);
-};
-
-/* the six interests, drawn along the ground in a fixed order so the two
-   acts are visibly the same line-up */
-const stakeLine = (needs, y, xs, cols) =>
-  STAKEHOLDERS.map((st, i) => stakeFig(xs[i], y, (needs || {})[st.id] ?? 2, cols[i], 0.86)).join("");
-
-const SX = [72, 162, 252, 548, 638, 728];
-const SC = [C.ink, C.yellow, C.blue, C.red, C.teal, "#7a5ea8"];
-
 const ART = {
-  title: (v, p = {}) => `
+  title: () => `
     ${sun(680, 86)}${cloud(220, 118, 1.1)}${cloud(470, 76, 0.85)}${bird(120, 160)}
     ${hill("M0 300c120-56 220-44 320 0s260 40 480-28V500H0z", C.sand)}
     ${P("M0 362c150 30 300-10 460 14s240 10 340-16", C.ink, 4)}
-    ${rasp(96, 322, 1.2)}${rasp(190, 336, 0.9)}${oak(300, 320, 0.8)}
+    ${sage(96, 322, 1.2)}${sage(190, 336, 0.9)}${sage(690, 318, 1.1)}
+    ${oak(300, 320, 0.8)}
     <g>
       <path d="M470 500V392c0-28 24-50 54-50h120c30 0 54 22 54 50v108z" fill="#2b2622" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
       ${nodules(452, 6, 5)}${fish(506, 424, 0.7)}${fish(606, 468, 0.6, C.rose)}
@@ -224,125 +173,179 @@ const ART = {
     ${fig(150, 318, 1.15, "stand")}${fig(210, 330, 1, "point")}
     ${truck(600, 300, 0.8)}`,
 
-  /* ------------------------------------------------ ACT ONE: the valley */
-  jadar: (v, p = {}) => {
-    const r = Math.min(4, p.actRound || 0);
-    const needs = p.needs || {};
-    const dead = v === "C" || p.flagDead;
-    const pit = dead ? 0 : r;                      // the hole deepens each round
-    const drop = 12 + pit * 19;                    // shallow enough to keep the line-up clear
-    const on = new Set(p.chosen || []);
-    const years = p.years;                          // live slider in round 2
-    const rushing = years != null && years <= 4;
-    const siteOk = (needs.site ?? 2) >= 3;
-    const sciOk = (needs.science ?? 2) >= 3;
+  /* 1. Thacker Pass — who you paid for, drawn as who is still standing there */
+  thacker: (v, p = {}) => {
+    const won = new Set(p.chosen || []);
+    const dug = won.has("dana") || v === "A";
+    const cleared = v === "A";
+    const people = [
+      { id: "lena",  x: 150, col: C.red,   tag: "PROTECTED", fill: C.teal },
+      { id: "ray",   x: 266, col: C.ink,   tag: "HIRING",    fill: C.yellow },
+      { id: "alvin", x: 382, col: C.teal,  tag: "METERED",   fill: C.teal },
+      { id: "dana",  x: 498, col: C.blue,  tag: "BUILDING",  fill: C.blue },
+    ];
     return `
-      ${sun(690, 78)}${cloud(230, 104, 1.05)}${cloud(500, 70, 0.8)}${bird(130, 146)}
-      ${hill("M0 318c140-48 240-36 340 4s250 30 460-20V500H0z", C.sand)}
+      ${sun(700, 76)}${cloud(250, 104, 1.05)}${cloud(500, 66, 0.8)}${bird(140, 146)}
+      ${hill("M0 322c130-58 230-46 330 0s250 40 470-24V500H0z", C.sand)}
+      ${dug ? P("M470 334q100 80 220 0", C.ink, 5, C.dust) + puff(540, 300, 1) : ""}
+      ${sage(64, 338, 1.2)}${sage(740, 304, 1.1)}
+      ${dug ? digger(620, 302, 0.95, true) : digger(650, 300, 0.9, false)}
+      ${people.map((q) => fig(q.x, 338, 1.2, won.has(q.id) ? "cheer" : cleared && q.id === "lena" ? "sad" : p.locked ? "walkaway" : "stand",
+         q.col, won.has(q.id) ? "anim-hop" : "")).join("")}
+      ${people.filter((q) => won.has(q.id)).map((q) => tag(q.x, 252, q.tag, q.fill)).join("")}`;
+  },
 
-      <!-- the seam is always drawn: the thing everybody is arguing over -->
-      <g opacity="0.9">
-        ${P("M60 408c140-18 250 10 360-4s240-16 380 6", "#f4f0e2", 16)}
-        ${P("M60 408c140-18 250 10 360-4s240-16 380 6", C.ink, 3)}
+  /* 2. Rhyolite Ridge — a live slider. The fence and the flowers MOVE. */
+  buckwheat: (v, p = {}) => {
+    const keep = p.keep == null ? 50 : p.keep;          // % of habitat left alone
+    const fenceX = 150 + (keep / 100) * 300;             // fence slides right as you protect more
+    const spots = [[170, 352], [214, 344], [128, 356], [258, 350], [300, 346], [338, 354], [382, 348], [424, 352]];
+    return `
+      ${sun(680, 76)}${cloud(200, 104, 1)}${bird(380, 120, 0.9)}
+      ${hill("M0 340c160-40 260-30 360 6s280 20 440-30V500H0z", C.sand)}
+      <g class="mine-mass" transform="translate(${fenceX} 0)">
+        ${P("M0 300h640v200H0z", C.ink, 5, C.dust)}
+        ${truck(120, 330, 0.85)}
       </g>
-
-      <!-- the river: it breathes, and it is downstream of everything -->
-      ${P("M0 348c120 16 190-14 300 2s250 26 500-6", C.blue, 7, "none").replace("<path ", '<path class="anim-drift" ')}
-      ${sciOk ? `${P("M150 348v-54", C.teal, 4)}${CIRC(150, 286, 9, "#fff", C.teal, 4)}` : ""}
-
-      ${pit > 0 ? `
-        <path d="M${356 - pit * 8} 322q${140 + pit * 14} ${drop * 2} ${280 + pit * 16} 0z"
-          fill="${C.dust}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
-        ${pit >= 2 ? puff(470, 290, 1 + pit * 0.08) : ""}
-        ${digger(300, 302, 0.78, true)}
-        ${pit >= 3 ? truck(690, 302, 0.62) : ""}` : `
-        ${rasp(390, 326, 1)}${rasp(470, 332, 0.9)}${rasp(550, 326, 1.05)}${rasp(630, 334, 0.95)}`}
-
-      ${on.has("drystack") ? `<path d="M300 500v-40h200l-18-30H318z" fill="${C.dust}" stroke="${C.ink}" stroke-width="5"/>` : ""}
-      ${on.has("bond") ? `<g><rect x="32" y="430" width="74" height="48" rx="5" fill="${C.yellow}" stroke="${C.ink}" stroke-width="5"/>${P("M32 452h74", C.ink, 4)}</g>` : ""}
-      ${rushing ? `<g class="anim-puff">${puff(400, 250, 1.3)}</g>` : ""}
-
-      ${siteOk ? `${rasp(40, 330, 1.1)}${rasp(792, 336, 1)}` : `${rasp(40, 330, 1.1)}`}
-      ${stakeLine(needs, 482, SX, SC)}
-      ${years != null ? tag(400, 150, `${years} YEARS TO FIRST ORE`, C.ink, 300) : ""}`;
+      <g class="fence">
+        ${P(`M${fenceX} 300v70`, C.teal, 6)}
+        ${P(`M90 364h${Math.max(0, fenceX - 90)}`, C.teal, 5)}
+      </g>
+      ${spots.map(([fx, fy], i) =>
+        flower(fx, fy, 1.25, fx < fenceX - 10, "fl")).join("")}
+      ${fig(70, 362, 1.1, keep > 55 ? "cheer" : keep > 25 ? "crouch" : "sad", C.teal)}
+      ${TXT(Math.min(fenceX + 70, 700), 290, keep >= 95 ? "NO MINE" : keep <= 5 ? "FULL MINE" : `${100 - keep}% MINED`, 20)}`;
   },
 
-  /* ------------------------------------------------ ACT TWO: the floor */
-  /* Identical composition to the valley, with the water raised. Same
-     six figures, same order, same positions. */
-  lagoon: (v, p = {}) => {
-    const r = Math.min(4, p.actRound || 0);
-    const needs = p.needs || {};
-    const closed = v === "B" || p.flagClosed;
-    const area = p.area;                            // live slider in round 6
-    const on = new Set(p.chosen || []);
-    const reach = closed ? 0 : (area != null ? area / 100 : r / 4);
-    const sciOk = (needs.science ?? 2) >= 3;
-    const siteOk = (needs.site ?? 2) >= 3;
+  /* 3. Oak Flat — crater depth tracks the schedule you guaranteed */
+  oakflat: (v, p = {}) => {
+    const bought = new Set(p.chosen || []);
+    const years = p.years;
+    const sunk = years != null ? 1 - years / 30 : v === "A" ? 1 : v === "C" ? 0.15 : 0;
+    const drop = Math.round(10 + sunk * 160);
+    const alive = sunk < 0.75;
     return `
-      <rect width="800" height="500" fill="#bcd8e6"/>
-      ${sun(706, 72)}${cloud(190, 72, 0.9)}${cloud(430, 58, 0.75)}${bird(120, 126)}
-
-      <!-- surface -->
-      <path d="M0 300h800v200H0z" fill="${C.blue}" stroke="${C.ink}" stroke-width="5"/>
-      ${P("M0 330c120 20 220-16 340 4s260 24 460-8", "#6fa8cf", 6, "none").replace("<path ", '<path class="anim-drift" ')}
-      ${atoll(120, 300, 0.95)}
-      <circle cx="120" cy="300" r="${closed ? 320 : 118}" fill="none"
-        stroke="${closed ? C.teal : "#eaf4fb"}" stroke-width="5" stroke-dasharray="18 14" opacity=".85"/>
-
-      <!-- the floor: the same seam, four kilometres lower -->
-      <path d="M0 418h800v82H0z" fill="#3b3326" stroke="${C.ink}" stroke-width="5"/>
-      ${nodules(410, 18, 6)}
-
-      ${reach > 0 ? `
-        ${ship(400 + 0, 300, 0.9, C.blue, "anim-bob")}
-        ${P(`M400 318V${392}`, "#9fd8cf", 4)}
-        ${collector(400, 400, 0.9)}
-        <g class="anim-drift">${plumeCloud(250, 372, 0.8 + reach, reach > 0.6)}</g>
-        ${reach > 0.5 ? ship(640, 300, 0.75, C.red, "anim-bob") : ""}` : `
-        ${ship(400, 300, 0.85, C.teal, "anim-bob")}${P("M400 318v70", "#9fd8cf", 3)}${CIRC(400, 396, 10, "#fff", C.ink, 4)}`}
-
-      ${on.has("observers") ? `${fig(470, 300, 0.7, "point", C.teal)}` : ""}
-      ${on.has("seabaseline") || sciOk ? `${P("M690 418v-48", C.teal, 4)}${CIRC(690, 362, 9, "#fff", C.teal, 4)}` : ""}
-      ${siteOk ? `${fish(200, 360, 0.9)}${fish(560, 350, 0.8, C.rose)}${fish(300, 392, 0.7, C.yellow)}` : `${fish(620, 346, 0.7, C.rose)}`}
-
-      <!-- a plank under each of the six, so the line-up stands on a jetty
-           rather than on the water -->
-      ${SX.map((x) => `<g>${P(`M${x - 28} 300h56`, C.ink, 6)}${P(`M${x - 20} 300v14M${x + 20} 300v14`, C.ink, 4)}</g>`).join("")}
-      ${stakeLine(needs, 296, SX, SC)}
-      ${area != null ? tag(400, 150, `${area}% OF THE OPEN ZONE`, C.ink, 300) : ""}`;
+      ${sun(90, 82, C.red)}${cloud(320, 92, 0.9)}${bird(560, 120, 0.8)}
+      ${hill("M0 300h800v200H0z", C.sand)}${P("M0 300h800", C.ink, 5)}
+      ${sunk > 0.05
+        ? `<path d="M150 300q250 ${drop * 2} 500 0z" fill="${C.dust}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
+           ${sunk > 0.5 ? puff(400, 272, 1.2) : ""}`
+        : `<g opacity="0.55"><path d="M180 320q220 150 440 0" fill="none" stroke="${C.ink}" stroke-width="4" stroke-dasharray="14 12"/></g>`}
+      ${alive ? oak(400, 300, 1.1, true) : ""}
+      ${bought.has("easement") ? `<g>${P("M300 300v-30M500 300v-30M300 274h200", C.teal, 5)}${tag(400, 250, "EASEMENT", C.teal, 124)}</g>` : ""}
+      ${bought.has("monitor") ? `<g>${P("M690 300l-14 34M690 300l14 34M690 300v-30", C.teal, 4)}${CIRC(690, 264, 8, "#fff", C.teal, 4)}</g>` : ""}
+      ${alive
+        ? `${fig(250, 300, 1.05, "stand")}${fig(300, 300, 1.05, "armsup", C.teal)}${fig(510, 300, 1.05, "stand")}`
+        : `${fig(690, 300, 1.15, "sad")}`}
+      ${bought.has("appr") ? `${fig(130, 300, 1.05, "point", C.yellow)}${tag(130, 232, "TRAINING", C.yellow, 112)}` : ""}
+      ${years != null ? tag(400, 128, years === 0 ? "NO DELAY" : `${years} YEARS GUARANTEED`, C.ink, 268) : ""}`;
   },
 
-  endGood: (v, p = {}) => `
+  /* 4. The crash — a live budget. Coin stacks rise as you allocate. */
+  crash: (v, p = {}) => {
+    const a = p.alloc || [0, 0, 0];
+    const spent = a[0] + a[1] + a[2];
+    return `
+      ${cloud(150, 86, 1)}${cloud(650, 62, 0.8)}
+      ${hill("M0 392h800v108H0z", C.sand)}
+      ${chart(58, 372, a[0] + a[2] >= 4)}
+      ${coins(346, 372, a[0], C.yellow, "floor price")}
+      ${coins(468, 372, a[1], C.teal, "tariffs")}
+      ${coins(590, 372, a[2], C.blue, "refining")}
+      ${spent === 0 ? TXT(470, 220, "nothing spent yet", 24) : ""}
+      ${fig(722, 392, 1.25, spent >= 5 ? "cheer" : spent >= 2 ? "stand" : "sad")}`;
+  },
+
+  /* 5. The deep */
+  deep: (v) => `
+    <rect width="800" height="500" fill="${C.deep}"/>
+    ${P("M0 120c120 30 220-20 340 6s260 34 460-10", "#2d5a85", 6)}
+    ${fish(90, 120, 0.95)}${fish(640, 90, 0.85, C.rose)}
+    <path d="M0 400h800v100H0z" fill="#3b3326" stroke="${C.ink}" stroke-width="5"/>
+    ${nodules(392, 18, 2)}
+    ${v === "C"
+      ? `${ship(400, 150, 1, C.teal, "")}${P("M400 176v120", "#9fd8cf", 4)}
+         <rect x="300" y="296" width="200" height="56" rx="6" fill="#fff" stroke="${C.ink}" stroke-width="5"/>${TXT(400, 334, "PAUSED", 26)}`
+      : v === "base"
+      ? `${ship(400, 140, 0.9, C.blue, "")}${P("M400 162v186", "#9fd8cf", 3)}${CIRC(400, 356, 12, "#fff", C.ink, 4)}${TXT(400, 300, "SURVEY", 18, "#cfe8ec")}`
+      : `${collector(400, 356, 1)}${plumeCloud(180, 330, 0.9, v === "B")}`}
+    ${v === "B" ? ship(140, 150, 0.8, C.red) : ""}
+    ${v === "A" ? `${ship(140, 150, 0.8, C.blue)}${ship(640, 160, 0.7, C.teal)}` : ""}
+`,
+
+  /* 6a. The plume — live slider: how deep you release the sediment */
+  plume: (v, p = {}) => {
+    const depth = p.depth == null ? 20 : p.depth;        // % of water column down
+    const y = 150 + (depth / 100) * 200;
+    const spread = 1.5 - (depth / 100);                   // shallower = wider drift
+    return `
+      <rect width="800" height="500" fill="${C.deep}"/>
+      <path d="M0 400h800v100H0z" fill="#3b3326" stroke="${C.ink}" stroke-width="5"/>
+      ${nodules(392, 14, 4)}
+      ${collector(400, 356, 0.95)}
+      ${P(`M400 356V${y}`, "#9fd8cf", 4)}
+      ${plumeCloud(120, y, spread, depth < 40)}
+      ${fish(90, 160, 0.95)}${depth < 45 ? "" : fish(680, 180, 0.85, C.rose)}
+      ${TXT(400, y - 36, depth < 35 ? "SHALLOW RELEASE" : depth < 70 ? "MID WATER" : "NEAR SEAFLOOR", 20, "#cfe8ec")}`;
+  },
+
+  /* 6b. The vacuum */
+  vacuum: (v) => `
+    <rect width="800" height="500" fill="#bcd8e6"/>
+    ${P("M0 300h800v200H0z", C.ink, 5, C.blue)}
+    ${P("M0 330c120 20 220-16 340 4s260 24 460-8", "#6fa8cf", 6)}
+    ${ship(570, 300, 0.9, C.red)}
+    ${v === "B" ? `${ship(300, 300, 0.8, C.teal)}${P("M348 286h176", C.ink, 4, "none")}${TXT(436, 276, "DEAL", 15)}` : ""}
+    <g><path d="M60 300h190v-10H60z" fill="#d9c49a" stroke="${C.ink}" stroke-width="5"/>
+       <path d="M78 300v40M232 300v40" stroke="${C.ink}" stroke-width="5" stroke-linecap="round"/></g>
+    ${fig(140, 290, 1.15, v === "A" ? "stand" : "point")}
+    ${v === "A" ? tag(300, 236, "WE WAIT", "#fff", 120) : ""}
+    ${sun(700, 80)}${cloud(420, 110, 0.9)}`,
+
+  endGood: () => `
     <rect width="800" height="500" fill="#eef3e6"/>
-    ${sun(690, 80)}${cloud(240, 108, 1)}${bird(140, 150)}${bird(210, 178, 0.8)}
+    ${sun(690, 80)}${cloud(240, 108, 1)}${bird(140, 150)}
     ${hill("M0 316c130-50 230-40 330 0s250 36 470-20V500H0z", C.sand)}
-    ${P("M0 352c120 16 190-12 300 2s250 22 500-6", C.blue, 7, "none").replace("<path ", '<path class="anim-drift" ')}
-    ${rasp(90, 330, 1.1)}${rasp(170, 338, 0.95)}${oak(300, 318, 0.85)}${atoll(640, 330, 0.9)}
-    ${stakeLine(p.needs, 440, SX, SC)}`,
+    ${oak(260, 320, 0.95)}${flower(430, 332, 1.3)}${sage(620, 300, 1.1)}
+    ${fig(120, 326, 1.2, "cheer", C.teal, "anim-hop")}${fig(180, 332, 1.1, "stand")}
+    ${truck(640, 300, 0.7)}
+    <g>${P("M470 500V400c0-24 20-44 46-44h110c26 0 46 20 46 44v100z", C.ink, 5, "#2b2622")}
+       ${fish(520, 430, 0.7)}${nodules(466, 5, 1)}</g>`,
 
-  endMixed: (v, p = {}) => `
-    <rect width="800" height="500" fill="#f1efe4"/>
-    ${cloud(220, 96, 1.05)}${cloud(560, 72, 0.85)}${sun(700, 78)}
-    ${hill("M0 320c140-44 240-32 340 2s250 28 460-18V500H0z", "#ded8c4")}
-    ${P("M0 352c120 14 190-12 300 2s250 22 500-6", "#9db9cf", 6, "none").replace("<path ", '<path class="anim-drift" ')}
-    <path d="M330 322q150 90 320 0z" fill="#c9c2ae" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
-    ${rasp(100, 332, 1)}${atoll(690, 334, 0.8)}
-    ${stakeLine(p.needs, 452, SX, SC)}`,
+  endBad: () => `
+    <rect width="800" height="500" fill="#f0e4d8"/>
+    ${sun(690, 80, C.red)}
+    ${hill("M0 330h800v170H0z", C.dust)}
+    <path d="M120 330q260 170 520 0z" fill="#b5a489" stroke="${C.ink}" stroke-width="5"/>
+    ${puff(360, 300, 1.4, "#d8cdb5")}
+    ${fig(80, 330, 1.2, "sad")}${truck(700, 318, 0.75, C.grey)}`,
 
-  endBad: (v, p = {}) => `
-    <rect width="800" height="500" fill="#efe6dc"/>
-    ${cloud(260, 86, 1.1)}${cloud(600, 66, 0.9)}${sun(86, 84, C.red)}
-    ${hill("M0 324h800v176H0z", "#d6cab2")}
-    <path d="M160 324q230 150 480 0z" fill="#b9a98c" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
-    <g class="anim-puff">${puff(420, 290, 1.4)}</g>
-    ${P("M0 356c120 14 190-12 300 2s250 22 500-6", "#a9a08c", 6)}
-    ${stakeLine(p.needs, 456, SX, SC)}`,
+  endMixed: () => `
+    <rect width="800" height="500" fill="#f1ecdd"/>
+    ${sun(690, 84)}${cloud(260, 104, 0.9)}
+    ${hill("M0 324c130-40 230-30 330 4s250 26 470-16V500H0z", C.sand)}
+    ${oak(250, 326, 0.85)}${flower(420, 338, 1.1, false)}
+    <path d="M520 326q90 60 190 0z" fill="${C.dust}" stroke="${C.ink}" stroke-width="5"/>
+    ${fig(120, 330, 1.15, "stand")}${fig(176, 336, 1.05, "sad")}
+    ${truck(660, 310, 0.7)}`,
+};
+
+/* Ambient animation runs on CSS keyframes, and every repaint of the plate
+   destroys and rebuilds the SVG — which restarts those keyframes at 0%, so a
+   cloud that was mid-drift visibly snaps back on every click. Stamping each
+   animated element with a negative animation-delay equal to the time since
+   load puts it back at the phase it would have reached, so the sky keeps
+   drifting across a repaint instead of twitching. Works for any duration. */
+const T0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
+const inPhase = (svg) => {
+  const t = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - T0) / 1000;
+  const d = ` style="animation-delay:-${t.toFixed(2)}s"`;
+  return svg.replace(/class="(anim-[a-z-]+)"/g, (m, c) => `class="${c}"${d}`);
 };
 
 function drawScene(key, variant = "base", params = {}) {
   const fn = ART[key] || ART.title;
-  return `
+  return inPhase(`
   <svg viewBox="0 0 ${VB.w} ${VB.h}" preserveAspectRatio="xMidYMid meet" class="scene-svg" role="img" aria-label="Scene illustration">
     <defs>
       <filter id="wob" x="-6%" y="-6%" width="112%" height="112%">
@@ -350,6 +353,6 @@ function drawScene(key, variant = "base", params = {}) {
         <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
     </defs>
-    <g filter="url(#wob)" font-family="'Inter', system-ui, sans-serif">${fn(variant, params)}</g>
-  </svg>`;
+    <g filter="url(#wob)" font-family="'Shantell Sans', system-ui, sans-serif">${fn(variant, params)}</g>
+  </svg>`);
 }
