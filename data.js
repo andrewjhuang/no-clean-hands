@@ -1,650 +1,369 @@
 /* ------------------------------------------------------------------
-   NO CLEAN HANDS — two live permits, one charter, and a loop.
+   NO CLEAN HANDS — one currency, six stakeholders, two deposits.
 
-   The class forms an international resource council sitting in 2026.
-   Before it hears anything it adopts two governing principles. Then it
-   decides two real cases that the real world has NOT decided:
+   The class runs a critical-minerals project. There is exactly one
+   number: SOCIAL LICENCE. Every decision spends it. Stakeholders whose
+   needs are met pay it back each round; stakeholders left starving
+   drain it. At zero the project is stopped — not by a regulator, by the
+   people standing around it.
 
-     CASE 1  Jadar, Serbia        — jadarite lithium, Rio Tinto.
-                                    Revoked 2022, revived by decree
-                                    2024, care and maintenance 2025.
-     CASE 2  Cook Islands EEZ     — cobalt-rich nodules in national
-                                    waters. Exploration extended to
-                                    2032. No ISA, no high seas, no
-                                    "common heritage" to argue about.
+   THE POINT OF THE STRUCTURE: Act One is a lithium mine in a Serbian
+   farming valley. Act Two is a cobalt nodule field on the Pacific
+   seafloor. They have the SAME six stakeholders and the SAME four
+   question shapes, in the same order, because they are the same
+   industry with the same bargain — and it is the bargain coal, gas and
+   oil made first. The product is cleaner. The process is a mine.
 
-   Neither project appears in Scheyder's "The War Below" (US-focused:
-   Thacker Pass, Rhyolite Ridge, Resolution Copper, Piedmont, Idaho
-   antimony, Pebble, Bolivia) or in Heffernan's "The High Seas" (the
-   Area, the CCZ, Solwara 1, the vents). The books supply the method —
-   consent, irreversibility, benefit, the Juukan Gorge precedent, the
-   common-heritage argument — and the class applies it to ground it has
-   not read about. That is the point.
-
-   THE LOOP is the second half of the game, drawn from RMI's "The
-   Battery Mineral Loop" (July 2024): six solutions that reduce how much
-   has to be mined at all. The council funds them out of the same money
-   it would spend on a mine, and they mature on a delay. Meanwhile a
-   demand forecast is revised, round by round, in the direction it has
-   actually been revised. A mine takes years to build. The forecast
-   moves faster than the shaft does.
+   Round shapes, deliberately mirrored:
+     1 / 5  a permit          (choice)
+     2 / 6  how much, how fast (slider)
+     3 / 7  what you require   (conditions)
+     4 / 8  who gets paid      (allocate)
 
    Places, laws, companies, rulings, dates and figures are real and
-   sourced in the debrief. Named individuals are fictional composites.
+   itemised in the debrief.
 ------------------------------------------------------------------- */
 
-const START = { env: 50, econ: 50, comm: 50, trust: 50 };
+const START_LICENCE = 70;
+const MET = 3;          // need at or above this is "met" and pays
 
-const METERS = [
-  { key: "env",   label: "Environment", full: "Water, seafloor, topsoil — the things that do not grow back on a permit cycle." },
-  { key: "econ",  label: "Economy",     full: "Supply secured, capital spent, projects that survive contact with a price." },
-  { key: "comm",  label: "Communities", full: "The people who live on top of the deposit, or fish above it." },
-  { key: "trust", label: "Trust",       full: "Whether anyone believes your council means what it writes down." },
-];
+/* Not all six weigh the same, and pretending they did made starving the
+   community the winning line. Social licence is granted by the people
+   standing on the deposit and by the state that answers to them; a
+   carmaker can neither grant it nor withdraw it. So each interest has
+   CLOUT — what its state is worth to you each round. Met pays clout.
+   Starved drains clout twice over, because losing a community is not
+   the inverse of pleasing one. */
+const STARVE_MULT = 2;
 
-/* ----------------------------------------------------------- charter */
-/* Five principles. The council adopts two. Sufficiency is the new one,
-   and it is the only one that can be satisfied without saying no. */
-const PRINCIPLES = [
-  { id: "consent", label: "Consent",
-    rule: "No project proceeds over the settled objection of the people who live on it.",
-    short: "Nothing over the settled objection of the people who live on it." },
-  { id: "reversible", label: "Reversibility",
-    rule: "No approval where the loss cannot be undone, and none where it cannot even be measured.",
-    short: "Nothing irreversible, and nothing unmeasurable." },
-  { id: "supply", label: "Supply",
-    rule: "The transition comes first. A metal deficit is a harm too, and it lands on people who did not choose it.",
-    short: "The transition comes first; a deficit is also a harm." },
-  { id: "benefit", label: "Benefit",
-    rule: "Whoever bears the cost receives a real, enforceable share of the gain.",
-    short: "Whoever bears the cost gets an enforceable share of the gain." },
-  { id: "sufficiency", label: "Sufficiency",
-    rule: "Open nothing that circularity and efficiency can supply instead. The cheapest tonne is the one never needed.",
-    short: "Open nothing the loop can supply instead." },
-];
-
-/* -------------------------------------------------------------- loop */
-/* RMI's six solutions, in the report's own rough order of impact so
-   far. `lead` is how many rounds until it shows up in the forecast —
-   the whole cruelty of the mechanic. `cut` is what it takes off
-   projected demand when it matures. */
-const LOOP = [
-  { id: "chem",     letter: "A", label: "Change the chemistry", lead: 1, cut: 7,
-    note: "LFP and sodium-ion need no nickel and no cobalt at all.",
-    matured: "The chemistry mix shifts. Cobalt comes out of the cathode, and out of your forecast." },
-  { id: "density",  letter: "B", label: "Raise energy density", lead: 1, cut: 5,
-    note: "More kilowatt-hours per kilogram is less mineral per car.",
-    matured: "Average pack density improves again. Same range, less rock." },
-  { id: "recycle",  letter: "C", label: "Recycle the stock", lead: 2, cut: 9,
-    note: "Recovery runs 90–94%. End-of-life batteries become the ore body.",
-    matured: "Recovered mineral starts arriving as supply. The ore body is now a scrapyard." },
-  { id: "life",     letter: "D", label: "Extend the lifetime", lead: 2, cut: 6,
-    note: "Ten to fifteen years, then a second life in grid storage.",
-    matured: "Packs stay in service longer and come back later. Demand flattens." },
-  { id: "vehicle",  letter: "E", label: "Make vehicles efficient", lead: 3, cut: 6,
-    note: "Lighter, sleeker, right-sized. A smaller pack for the same range.",
-    matured: "Right-sized vehicles land. Every kilogram of car was kilograms of mine." },
-  { id: "mobility", letter: "F", label: "Make mobility efficient", lead: 3, cut: 7,
-    note: "Transit, micromobility, and not needing the trip at all.",
-    matured: "Mode shift shows up in the fleet model. The cars you never built need nothing." },
+/* The same six interests, named for whichever deposit you are standing
+   on. A fisher and a farmer want the identical thing. */
+const STAKEHOLDERS = [
+  { id: "site", clout: 5, label: "On site", icon: "home",
+    land: "Jadar valley", sea: "Island fishers",
+    landWant: "To know whether they live on a farm or on a deposit.",
+    seaWant: "A reef and a tuna season that are still there in sixty years." },
+  { id: "work", clout: 2, label: "Workforce", icon: "helmet",
+    land: "Loznica jobs", sea: "Crew and port",
+    landWant: "Work that lasts longer than the construction phase.",
+    seaWant: "Berths on the survey ships, and the port that services them." },
+  { id: "money", clout: 2, label: "Investors", icon: "coin",
+    land: "The operator", sea: "Licence holders",
+    landWant: "A permit that cannot be revoked by the next government.",
+    seaWant: "A date when the exploration licence becomes a mining one." },
+  { id: "state", clout: 3, label: "The state", icon: "flag",
+    land: "Belgrade", sea: "Rarotonga",
+    landWant: "Tax base, EU standing, and a project it can defend on television.",
+    seaWant: "An economy that is not only tourism, and partners who respect the choice." },
+  { id: "science", clout: 2, label: "Science", icon: "flask",
+    land: "Drina hydrology", sea: "Abyssal survey",
+    landWant: "A measured baseline before anything moves, not after.",
+    seaWant: "Time to describe what lives down there before it is lifted." },
+  { id: "buyer", clout: 1, label: "Buyers", icon: "car",
+    land: "European carmakers", sea: "The same carmakers",
+    landWant: "Tonnes, on a contract, inside this decade.",
+    seaWant: "Tonnes, on a contract, inside this decade." },
 ];
 
 const PROLOGUE = {
   title: "No Clean Hands",
-  sub: "Two permits nobody has decided. One charter. A forecast that will not hold still.",
+  sub: "Two deposits. Six interests. One licence, and it is spent.",
   lines: [
-    "You are an international resource council, sitting now. Two live cases: a lithium deposit under a farming valley in western Serbia, and a cobalt-rich nodule field inside the Cook Islands' own waters, where no international authority can tell you anything.",
-    "You also hold a second budget. It buys none of that. It buys <b>the loop</b> — the six ways to need less mined metal in the first place. Both come out of the same hand.",
-    "First, your charter: adopt <b>two</b> principles of five. They bind you in both cases, and the second case will quote the first one back at you.",
-    "Watch the forecast. It has been revised downward every year anyone has been forecasting. Your mine takes six years to build."
+    "Every battery, turbine and grid needs lithium, cobalt, nickel and copper, and the countries building them have decided this is a race. It is the same race, run by the same companies, under the same ministries, that coal and oil ran first.",
+    "The product is cleaner than what it replaces. <b>The process is still a mine.</b> A valley is still a valley and a seafloor is still a seafloor.",
+    "You hold one thing: <b>social licence</b>. Every decision costs some. Stakeholders whose needs are met pay it back each round; anyone you leave starving drains it. At zero, the project stops.",
+    "Act One is a farming valley in Serbia. Act Two is five thousand metres of Pacific. Watch how little the questions change."
   ],
-  note: "Real projects, laws, rulings and dates. The people you meet are composites written for this exercise."
+  note: "Real projects, laws, rulings and dates, itemised at the end."
 };
 
 /* ================================================================== */
-const CHAPTERS = [
-  /* ------------------------------------------------- the charter */
+const ACTS = [
   {
-    id: "charter", title: "The charter", sub: "Before you hear anything", realm: "land", art: "title",
-    intro: "You will be asked for four kinds of thing: a permit, a set of conditions, a share of the proceeds, and money for the loop. Before any of it, write down what you will not do. Two principles. You may not add a third later, and you may not quietly drop one.",
-    cast: [],
+    id: "jadar", title: "Act One: Jadar", sub: "Loznica, western Serbia · lithium",
+    realm: "land", art: "jadar", side: "land",
+    intro: "In 2004 drillers in the Jadar valley hit a white mineral that matched nothing in the catalogue. It was named jadarite and has never been found anywhere else on Earth. The USGS put the deposit at 118 million tonnes of ore at 1.8% lithium oxide — enough lithium each year, on the operator's plan, for around 1.1 million electric cars. The valley above it grows raspberries for export and drains into the Drina.",
     beats: [
       {
-        type: "charter", pickCount: 2, art: "title",
-        place: "Adopt your charter", year: "Round 0",
-        situation: "Five principles. Every one is defensible and no two are compatible in every case. Adopt two. From this round forward every option on screen is tagged with the principles it keeps and the principles it breaks — and breaking one you signed costs you far more than breaking one you never did.",
-        ask: "Pick two. The room has to live with both.",
-        voices: [
-          { who: "Secretariat note", role: "circulated before the sitting", line: "Councils that adopt Consent and Benefit approve slowly and pay well. Councils that adopt Supply and Sufficiency approve little and build fast. Nobody has adopted all four and survived the minutes." }
-        ],
-        detail: [
-          "Sufficiency is the only principle here that can be satisfied by doing something rather than by refusing something. It is also the only one that costs money in the round you adopt it and pays out three rounds later.",
-          "Consent is the principle both books spend the most pages on and the hardest to define. Who is the people? A tribal council, a referendum, a village, a parliament, a nation of fifteen thousand?",
-          "Reversibility is the precautionary principle with the vagueness removed: not 'be careful' but 'no approval where the loss cannot even be measured'."
-        ],
-        discuss: [
-          "Which of the five would you be most embarrassed to break in public?",
-          "Supply and Sufficiency both answer 'we need the metal', in opposite directions. Which is yours?",
-          "If you adopt Consent, say now whose consent counts. You will be held to the definition."
-        ]
-      }
-    ]
-  },
-
-  /* =============================================== CASE 1 — JADAR */
-  {
-    id: "jadar", title: "Case One: Jadar", sub: "Loznica, western Serbia · lithium and boron", realm: "land", art: "jadar",
-    ore: { label: "first ore", years: 6 },
-    intro: "In 2004, drillers in the Jadar valley hit a white mineral that matched nothing in the catalogue. It was named jadarite, and it has never been found anywhere else on Earth. The USGS put the deposit at 118 million tonnes of ore at 1.8% lithium oxide — on the operator's plan, enough lithium carbonate each year for around 1.1 million electric cars, plus boron. The valley above it grows raspberries for export and drains into the Drina.",
-    cast: [
-      { who: "Vesna Tadić, 61", role: "raspberry grower, Gornje Nedeljice" },
-      { who: "Dr Milena Pavlović, 44", role: "hydrogeologist, Drina basin" },
-      { who: "Nikola Đorđević", role: "ministry of mining and energy" }
-    ],
-    beats: [
-      {
-        type: "choice", art: "jadar",
+        type: "choice", shape: "A permit",
         place: "The restored decree", year: "Round 1",
-        situation: "Serbia revoked the spatial plan in January 2022, after the largest environmental protests in its recent history. In July 2024 the Constitutional Court held that the revocation itself was unconstitutional. The ruling did not restore the plan — the government did that by decree four days later, with no public debate and no strategic assessment. The permit is legally alive, politically radioactive, and opposed by over 60% of the country.",
-        ask: "The decree is on your table. Ratify, re-run, or refuse.",
-        voices: [
-          { who: "Nikola Đorđević", role: "ministry of mining and energy", line: "The court found the revocation unlawful. Restoring the prior state is not a favour to the company, it is what a ruling means. You are being asked to treat obedience to a court as a scandal." },
-          { who: "Vesna Tadić, 61", role: "raspberry grower, Gornje Nedeljice", line: "They cancelled it and we believed them. Then a court we never heard from uncancelled it over a weekend. I am not against lithium. I am against finding out what happens to my valley from the television." }
-        ],
+        situation: "Serbia revoked the project's spatial plan in January 2022 after the largest environmental protests in its recent history. In July 2024 the Constitutional Court held that the revocation itself was unconstitutional, and the government restored the plan by decree four days later — with no public debate and no strategic assessment. The permit is legally alive. Over 60% of the country opposes it.",
+        ask: "Ratify the decree, re-run it properly, or refuse.",
         detail: [
-          "The Constitutional Court ruled on 11 July 2024 that the 2022 revocation decree did not conform to the constitution or to the laws on government and on environmental impact assessment. The court was explicit that its ruling did not itself reinstate the 2020 spatial plan.",
-          "The government adopted a decree on 16 July 2024 restoring the legal position that existed before the revocation. One week later Serbia's mining minister signed a memorandum with European Commission Vice-President Maroš Šefčovič on critical raw materials, battery value chains and electric vehicles. Chancellor Scholz called it 'a good project for Serbia'.",
-          "Rio Tinto had warned Serbia it would pursue international arbitration to protect its investment. Refusal is not free; it has a filing number."
+          "The Constitutional Court ruled on 11 July 2024 that the 2022 revocation did not conform to the constitution or to the laws on government and environmental impact assessment. It was explicit that the ruling did not itself reinstate the 2020 plan; the government did that by decree on 16 July.",
+          "A week later Serbia's mining minister signed a memorandum with European Commission Vice-President Maroš Šefčovič on critical raw materials, battery value chains and electric vehicles. The project now holds EU Strategic Project status.",
+          "Rio Tinto, the operator, had warned Serbia it would pursue international arbitration to protect its investment. Refusing is not free."
         ],
         discuss: [
           "A court ruled the cancellation unlawful. Does that oblige you to approve, or only to decide properly?",
-          "Over 60% of the country is against. Is that a settled objection, or a poll?",
-          "Who is 'the people who live on it' here — the valley, Loznica, or Serbia?"
+          "Sixty percent of a country is against it. Is that an objection or a poll?",
+          "Coal projects were approved this way for a century. What is different now?"
         ],
         choices: [
-          { key: "A", label: "Ratify the decree as it stands", sub: "Obey the ruling, proceed on the restored plan.",
-            d: { econ: 14, comm: -14, trust: -6, env: -4 }, up: ["supply"], vio: ["consent"], flag: "jadar_live,jadar_fast",
-            out: { t: "Lawful and hated", x: "The plan is restored, the arbitration threat evaporates, and the project clock starts. Loznica learns about it from the same television as last time. Your council is now the body that reinstated a mine without a public hearing, which will be the first line of every article written about you for six years." } },
-          { key: "B", label: "Re-run the plan properly", sub: "Full strategic assessment, public inquiry, then decide.",
-            d: { comm: 12, trust: 12, econ: -10, env: 4 }, up: ["consent", "reversible"], vio: ["supply"], flag: "jadar_live,jadar_slow",
-            out: { t: "Two more years", x: "You order the assessment the decree skipped. The valley gets hearings, the hydrology gets published, and the company gets a two-year delay it costs into the capital budget. Every month of that delay is a month the forecast keeps moving, which nobody in the room has thought about yet." } },
-          { key: "C", label: "Refuse and take the arbitration", sub: "Cancel for good. Defend it in a tribunal.",
-            d: { comm: 18, env: 10, econ: -20, trust: 2 }, up: ["consent", "reversible"], vio: ["supply", "benefit"], flag: "jadar_dead",
-            out: { t: "See you in tribunal", x: "The valley holds. The claim is filed within the quarter and the figure in it is larger than anything your council has ever disbursed. Europe's lithium plan loses its only domestic deposit of a mineral found nowhere else, and the investors who were watching Serbia go and watch somewhere with no court at all." } }
+          { key: "A", label: "Ratify the decree", sub: "Obey the ruling. Start the clock.", cost: 6,
+            need: { money: 2, buyer: 1, state: 1, site: -2, science: -1 }, flag: "live,fast",
+            out: { t: "Lawful and hated", x: "The plan is restored and the arbitration threat evaporates. Loznica finds out from the television, again. Your council is now the body that reinstated a mine without a hearing, and that is the first line of everything written about you from here." } },
+          { key: "B", label: "Re-run the plan properly", sub: "Full assessment and a public inquiry first.", cost: 14,
+            need: { site: 2, science: 2, state: 1, money: -2, buyer: -1 }, flag: "live,slow",
+            out: { t: "Two more years", x: "You order the assessment the decree skipped. The valley gets hearings and the hydrology gets published. The operator costs two years of delay into its budget and says so in every quarterly call." } },
+          { key: "C", label: "Refuse it outright", sub: "Cancel for good and defend it in a tribunal.", cost: 16,
+            need: { site: 3, science: 1, money: -2, buyer: -2, state: -1, work: -1 }, flag: "refused",
+            out: { t: "See you in tribunal", x: "The valley holds and the claim is filed inside the quarter, for a number larger than anything you have ever disbursed. Note what did not happen: the file did not close. The decree still stands, the ministry still has a plan, and you will spend the next three rounds setting conditions on a project you voted against. That is the normal condition of this work." } }
         ]
       },
-
       {
-        type: "spend", art: "drina", requires: "jadar_live",
-        place: "The Drina", year: "Round 2",
-        situation: "Processing jadarite is wet chemistry. Critics say the tailings and wastewater plan puts the Drina and Sava basins at risk — the rivers that supply Belgrade. The Serbian Academy of Sciences and Arts wrote to the prime minister about irregularities. The company says it will meet EU standards. Neither statement is a monitoring regime.",
-        ask: "Attach conditions. Each is real money, and each is unattachable later if you do not write it now.",
-        voices: [
-          { who: "Dr Milena Pavlović, 44", role: "hydrogeologist, Drina basin", line: "I am not telling you the river dies. I am telling you nobody has measured it well enough to prove anything afterwards. Build the monitoring first and you can be contradicted. Build it second and you cannot be." },
-          { who: "Nikola Đorđević", role: "ministry of mining and energy", line: "Every condition you attach, you attach to the only operator who answers for it publicly. Attach nothing and you were captured. Attach everything and it moves somewhere that publishes nothing." }
-        ],
+        type: "slider", shape: "How much, how fast",
+        place: "The schedule", year: "Round 2",
+        situation: "You set the build. Fast means first ore this decade, the contracts honoured and the jobs now. Slow means the hydrology is finished first, the valley can plan, and the carmakers go shopping elsewhere. Nobody in the room disputes the trade. They dispute where on it to stand.",
+        ask: "How many years until first ore?",
         detail: [
-          "Rio Tinto is the operator here, and is the same company that destroyed the Juukan Gorge rock shelters in 2020 under a valid approval — 46,000 years of occupation, legally. Its chief executive resigned. That is the record these conditions are written against, and the precedent Scheyder's reporting keeps returning to: a lawful permit is not a safe one.",
-          "The European Union has granted Jadar Strategic Project status under its critical raw materials framework, which carries permitting and environmental expectations of its own. Some conditions you decline here, Brussels may impose anyway — later, and without you getting the credit.",
-          "Dry-stack tailings cost more per tonne and fail differently. Wet impoundments fail catastrophically and rarely; dry stacks fail slowly and often. 'Safer' is a choice about which failure you would rather explain."
+          "The mine is not expected to open before 2028 at the earliest, and in November 2025 the operator moved it into care and maintenance citing no progress on permits — so the real-world answer so far has been 'slower than anyone planned'.",
+          "Lithium prices came off an eighteen-month spike in late 2023 and did not go back. A fast build into a soft price is how mines end up suspended; a slow build into a tight price is how countries end up importing.",
+          "This is the oldest decision in extraction. The Appalachian coal fields, the North Sea and the Permian were all built on the fast answer, and the communities that hosted them are still arguing about it."
         ],
         discuss: [
-          "Which single condition would you refuse to approve the project without?",
-          "The company says it will meet EU standards. What is the difference between a standard and an enforceable condition?",
-          "If Brussels will require it anyway, is there any point in you requiring it?"
+          "Who benefits from speed? Name them, then check whether they live there.",
+          "If the price falls while you build, whose problem is that?",
+          "Is there a speed at which everyone's need is met? Say so out loud if there isn't."
         ],
-        options: [
-          { id: "nodischarge", cost: 0, label: "No-discharge covenant", note: "Zero process water to the Drina. Closed circuit or nothing.",
-            d: { env: 12, econ: -8 }, up: ["reversible"],
-            yes: "The no-discharge covenant goes in, and the capital cost goes up by roughly a tenth.",
-            no: "Without the covenant the discharge limits are the ones in the general permit, which was written for a different industry." },
-          { id: "drystack", cost: 0, label: "Dry-stack tailings", note: "No impoundment above Belgrade's water.",
-            d: { env: 10, econ: -7 }, up: ["reversible"],
-            yes: "Dry stacking is specified, which removes the dam-failure case entirely and adds a decade of haulage.",
-            no: "Conventional wet tailings are permitted, upstream of Belgrade's water, which is how it was always planned." },
-          { id: "baseline", cost: 0, label: "Published water baseline", note: "Independent, pre-construction, public.",
-            d: { env: 6, trust: 12 }, up: ["reversible", "consent"],
-            yes: "The baseline is measured and published before first works, so the argument afterwards can be settled by data.",
-            no: "No independent baseline exists, so every future claim about the river is one expert's word against another's, forever." },
-          { id: "sanu", cost: 0, label: "Academy review panel", note: "The Academy nominates the reviewers, not you.",
-            d: { trust: 10, comm: 6, econ: -4 }, up: ["consent"],
-            yes: "The Academy nominates the panel, so the review can no longer be dismissed as the ministry marking its own homework.",
-            no: "The review panel is appointed by the ministry, which is lawful, normal, and believed by nobody in the valley." },
-          { id: "bond", cost: 0, label: "Closure bond in escrow", note: "Cash held for rehabilitation, before first ore.",
-            d: { econ: -6, env: 6, comm: 6 }, up: ["benefit", "reversible"],
-            yes: "The bond is lodged, so the valley is funded for closure even if the operator is not here to fund it.",
-            no: "No bond is lodged. If the project is abandoned mid-life, rehabilitation is a line item in somebody's future budget." }
-        ]
-      },
-
-      {
-        type: "spend", art: "loop",
-        place: "The loop", year: "Round 3",
-        situation: "A separate paper, the same budget. Six known ways to need less mined metal. Together they have already cut what the world mines: without them, 2023 lithium demand would have been 58% higher, nickel 127%, cobalt 138%. None of them produces a tonne this year.",
-        ask: "Fund the loop. Each solution matures on a delay, and the delay is the whole problem.",
-        voices: [
-          { who: "Secretariat note", role: "attached to the paper", line: "Between 2019 and 2023 one major outlook raised its 2030 battery demand by 1.8× while projected cobalt per battery fell by more than 3.6×. The error has run in one direction for a decade." },
-          { who: "Nikola Đorđević", role: "ministry of mining and energy", line: "I have no objection to any of this. I object to being told it replaces a mine in a year when it replaces nothing. Recycling returns the metal in the 2030s. The deficit, if there is one, is now." }
-        ],
-        detail: [
-          "Chemistry and density mature fastest (one round), recycling and lifetime take two, and the vehicle and mobility solutions take three — you will be deciding the second case before they show up. That ordering is not arbitrary: it is roughly how fast each has actually moved.",
-          "Recovery rates for recycled battery minerals run 90–94% and better. A battery lasts ten to fifteen years, so improving overall system efficiency by 6–10% per decade is enough to cover the losses. That is what closing the loop means: mining becomes a one-off, not a flow.",
-          "RMI's figure for how much must be mined before the system is self-sufficient is about 125 million tonnes of battery minerals, roughly $1.08 trillion at today's prices. The world extracts and burns over seventeen times that tonnage in oil for road transport every single year, and has to do it again the next year."
-        ],
-        discuss: [
-          "If the loop closes in the 2040s, who supplies the 2030s? Name them.",
-          "Is funding recycling instead of a mine a Sufficiency decision or a Supply decision? It scores as either.",
-          "Three of these six are not mining policy at all. Does this council have any business funding bike lanes?"
-        ],
-        options: [
-          { id: "L_chem", loop: "chem", cost: 0, label: "A · Change the chemistry", note: "LFP and sodium-ion. No nickel, no cobalt. Matures in 1 round.",
-            d: { econ: -5, env: 4 }, up: ["sufficiency"],
-            yes: "Chemistry support is funded.", no: "Chemistry support is declined, and the cathode mix stays where the market puts it." },
-          { id: "L_density", loop: "density", cost: 0, label: "B · Raise energy density", note: "More range per kilogram of rock. Matures in 1 round.",
-            d: { econ: -4, env: 3 }, up: ["sufficiency"],
-            yes: "Density research is funded.", no: "Density research is declined." },
-          { id: "L_recycle", loop: "recycle", cost: 0, label: "C · Recycle the stock", note: "90–94% recovery. Matures in 2 rounds.",
-            d: { econ: -7, env: 6 }, up: ["sufficiency", "reversible"],
-            yes: "Collection and recovery capacity is funded.", no: "Recovery capacity is declined, and the end-of-life packs go wherever packs go." },
-          { id: "L_life", loop: "life", cost: 0, label: "D · Extend the lifetime", note: "Longer first life, then grid storage. Matures in 2 rounds.",
-            d: { econ: -4, env: 4 }, up: ["sufficiency"],
-            yes: "Lifetime and second-life rules are funded.", no: "Lifetime extension is declined." },
-          { id: "L_vehicle", loop: "vehicle", cost: 0, label: "E · Make vehicles efficient", note: "Right-sized cars, smaller packs. Matures in 3 rounds.",
-            d: { econ: -5, env: 5 }, up: ["sufficiency"],
-            yes: "Vehicle efficiency standards are funded.", no: "Vehicle efficiency is declined, and the fleet keeps getting heavier." },
-          { id: "L_mobility", loop: "mobility", cost: 0, label: "F · Make mobility efficient", note: "Transit and the trips not taken. Matures in 3 rounds.",
-            d: { econ: -6, env: 5, comm: 5 }, up: ["sufficiency"],
-            yes: "Mobility programmes are funded.", no: "Mobility programmes are declined." }
-        ]
-      },
-
-      {
-        type: "slider", art: "refinery", requires: "jadar_live",
-        place: "Where the value lands", year: "Round 4",
-        situation: "The ore can leave Serbia as concentrate, or as battery-grade lithium carbonate. Refining at home keeps the margin, the jobs and the tax base in Loznica. It also puts the chemical plant in this valley rather than somebody else's, upstream of the same water. Benefit and Reversibility are the same lever here, pointing opposite ways.",
-        ask: "How much of the chain stays in country?",
-        voices: [
-          { who: "Vesna Tadić, 61", role: "raspberry grower, Gornje Nedeljice", line: "Everyone asks whether we want the mine. Nobody asks whether we want the factory. They are not the same question, and the factory is the one next to the school." },
-          { who: "Nikola Đorđević", role: "ministry of mining and energy", line: "Shipping concentrate is how a country stays poor politely. We have been the quarry before. If the processing goes to Germany then so does the complaint about the processing, and so does the money." }
-        ],
-        detail: [
-          "This is the extractive-periphery argument both books make from opposite ends: Scheyder on US towns that host the hole and import the battery, Heffernan on Pacific states that sponsor a contractor and receive a royalty. Jadar is the European version of the same bargain.",
-          "Boron is the quiet half of this deposit. Jadarite yields boric acid as well as lithium, with a market unrelated to batteries — and one that does not care at all what happens to lithium demand. A refinery built for both is a different risk than a mine built for one.",
-          "A refinery is a twenty-year asset in a valley that has said it does not want one. It is also the only version of this project in which Serbia is not simply the source."
-        ],
-        discuss: [
-          "Is 'the benefit' the tax base, the jobs, or the right to refuse?",
-          "If you believe the mine is unsafe, can you consistently want the refinery?",
-          "Who did you just decide bears the chemical risk? Say their name."
-        ],
-        slider: { key: "refine", min: 0, max: 100, step: 25, start: 50, unit: "%", labelLow: "ship concentrate", labelHigh: "refine at home" },
+        slider: { key: "years", min: 3, max: 12, step: 3, start: 6, unit: " yrs", labelLow: "build now", labelHigh: "measure first" },
         bands: [
-          { max: 0, t: "A quarry with good manners", d: { econ: -6, comm: -10, env: 6, trust: -4 }, vio: ["benefit"], flag: "jadar_quarry",
-            x: "The concentrate leaves on the train and the value is added two borders away. The valley carries the hole and none of the margin, which is an arrangement it has been in before and recognises immediately." },
-          { max: 50, t: "Half a chain", d: { econ: 6, comm: 4, env: -4 }, up: ["benefit"], flag: "jadar_half",
-            x: "Primary processing stays, final refining goes. Loznica gets a plant, some jobs and a modest share of the margin, and nobody is satisfied — which in this file is the sound of a workable compromise." },
-          { max: 100, t: "The whole chain, in the valley", d: { econ: 14, comm: 8, env: -14, trust: 4 }, up: ["benefit", "supply"], vio: ["reversible"], flag: "jadar_refine",
-            x: "Serbia keeps the lithium carbonate, the boric acid, the tax base and the chemical plant. All of it is in the Jadar valley, upstream of Belgrade's water, and all of it will still be there when the ore runs out — which is either industrial policy or a second deposit of risk, depending who you ask." }
+          { max: 3, t: "Three years", cost: 16, need: { money: 2, buyer: 2, work: 2, site: -2, science: -2 }, flag: "rush",
+            x: "You build at the fastest schedule anyone has costed. The contracts are honoured, the jobs arrive, and the baseline survey is running behind the excavators — which means every future argument about the river is one expert's word against another's, permanently." },
+          { max: 6, t: "Six years", cost: 10, need: { money: 1, buyer: 1, work: 1, science: 1 }, flag: "mid",
+            x: "The standard build. Fast enough that the money stays and the crews are hired, slow enough that the hydrology is finished before the second phase. Nobody gets what they asked for, which is what a schedule is." },
+          { max: 9, t: "Nine years", cost: 8, need: { science: 2, site: 1, state: 1, buyer: -2, money: -1 }, flag: "slow",
+            x: "You put the science in front of the shaft. The valley is measured, published and arguable. Two of the three offtake contracts lapse and are signed in Chile and Australia instead, where nobody asked these questions at all." },
+          { max: 12, t: "Twelve years", cost: 6, need: { science: 3, site: 2, money: -2, buyer: -2, work: -2 }, flag: "glacial",
+            x: "A twelve-year build is a decision not to build, taken in a way that nobody has to defend. The valley is safe, the crews leave for Germany, and the lithium is bought from somewhere that will not be in this debrief." }
         ]
       },
-
       {
-        type: "choice", art: "parked", requires: "jadar_live",
-        place: "Care and maintenance", year: "Round 5",
-        situation: "In November 2025 the operator put Jadar into care and maintenance, citing no progress on permits. Not cancelled — parked. Staff retained, obligations met, nothing built. Lithium prices had come off an eighteen-month spike and never went back. The valley is neither mined nor released, and the forecast has moved three times since you signed the decree.",
-        ask: "A parked mine is still a decision. Make it.",
-        voices: [
-          { who: "Vesna Tadić, 61", role: "raspberry grower, Gornje Nedeljice", line: "Four years we have not known whether to plant. You cannot sell a farm with a mine on it and you cannot sell a farm with a maybe on it. Say yes or say no. The maybe is the thing that is actually taking the valley." },
-          { who: "Dr Milena Pavlović, 44", role: "hydrogeologist, Drina basin", line: "Care and maintenance means the monitoring budget is the first line cut. Whatever baseline you ordered, check this year whether anyone is still reading it." }
-        ],
+        type: "conditions", shape: "What you require",
+        place: "The Drina", year: "Round 3",
+        situation: "Processing jadarite is wet chemistry. Critics say the tailings and wastewater plan puts the Drina and Sava basins at risk — the rivers that supply Belgrade. The Serbian Academy of Sciences and Arts wrote to the prime minister about irregularities. The company says it will meet EU standards. Neither statement is a monitoring regime.",
+        ask: "Attach what you require. Each one is licence you do not get back.",
         detail: [
-          "'Care and maintenance' is the industry's term for a project held in suspension: legal obligations met, assets preserved, no production. It is reversible on the company's timetable and not on the community's.",
-          "This is the volatility RMI warns about at the end of the report: as the six solutions bite, mineral prices fall and the system 'rings like a bell' — fewer new mines, and less incentive to recycle at exactly the moment recycling must carry the load.",
-          "The European Commission's Strategic Project designation remains in force. In 2026 environmental groups brought proceedings before the Court of Justice of the European Union challenging it. Nothing about this file is finished."
+          "Rio Tinto is the operator here and is the company that destroyed the Juukan Gorge rock shelters in 2020 — 46,000 years of occupation, under a valid approval. Its chief executive resigned. A lawful permit is not a safe one.",
+          "Dry-stack tailings cost more and fail differently: wet impoundments fail catastrophically and rarely, dry stacks fail slowly and often. 'Safer' is a choice about which failure you would rather explain.",
+          "Tailings dams are not a battery-minerals problem. Brumadinho in 2019 killed 270 people at an iron ore mine. The engineering is the same; only the end product has changed."
         ],
         discuss: [
-          "Is a parked project a kept promise or a broken one?",
-          "The company can wait twenty years. The valley cannot. Should a permit expire?",
-          "If you ratified in round 1 and the project is parked in round 5, what exactly did your approval buy?"
+          "Which single condition would you refuse to approve without?",
+          "What is the difference between a standard and an enforceable condition?",
+          "Everything here costs licence. What did you decide the river was worth?"
         ],
-        choices: [
-          { key: "A", label: "Let it sit", sub: "Suspension is lawful. Review it in five years.",
-            d: { comm: -16, trust: -10, econ: -2 }, vio: ["consent", "benefit"], flag: "jadar_parked",
-            out: { t: "The maybe", x: "Nothing is built and nothing is released. The valley enters its fifth year of not knowing, land values stay where uncertainty puts them, and the monitoring you ordered quietly loses its funding line. Your council has achieved the one outcome everybody in the room agreed was the worst." } },
-          { key: "B", label: "Sunset the permit", sub: "Build inside four years or the plan lapses for good.",
-            d: { comm: 16, trust: 14, econ: -8 }, up: ["consent", "reversible"], vio: ["supply"], flag: "jadar_sunset",
-            out: { t: "A clock on the permit", x: "You put an expiry on it. The valley can plan, the company has to commit or walk, and every mining ministry in Europe writes in to object that you have made their permits worth less. They are right. That was the mechanism." } },
-          { key: "C", label: "Take it into public hands", sub: "Buy the asset. The state carries it, and the risk.",
-            d: { econ: -14, comm: 6, trust: -4, env: 4 }, up: ["benefit"], vio: ["supply"], flag: "jadar_public",
-            out: { t: "Yours now", x: "The state acquires a parked lithium project at a price set while lithium is cheap. If demand returns you look visionary. If the loop closes first you have bought the world's only jadarite deposit at the exact moment nobody needs it, with public money, in a valley that did not ask for it." } }
+        options: [
+          { id: "nodischarge", label: "No-discharge covenant", note: "Zero process water to the Drina. Closed circuit or nothing.", cost: 7,
+            need: { science: 1, site: 2, money: -1 },
+            yes: "The covenant goes in and the capital cost rises about a tenth.",
+            no: "Discharge runs to the limits in the general permit, which was written for a different industry." },
+          { id: "drystack", label: "Dry-stack tailings", note: "No impoundment above Belgrade's water.", cost: 8,
+            need: { site: 2, science: 1, money: -2 },
+            yes: "Dry stacking is specified, which deletes the dam-failure case and adds a decade of haulage.",
+            no: "Conventional wet tailings are permitted upstream of a capital city's water supply." },
+          { id: "baseline", label: "Published water baseline", note: "Independent, before construction, public either way.", cost: 6,
+            need: { science: 3, site: 1 },
+            yes: "The river is measured and published before first works, so the argument afterwards can be settled by data.",
+            no: "No independent baseline exists, so nothing about the river can ever be proved in either direction." },
+          { id: "local", label: "Local hiring floor", note: "A fixed share of jobs and contracts from the valley.", cost: 6,
+            need: { work: 3, site: 1, money: -1 },
+            yes: "A hiring floor is written in, so the work goes to people who have to live with the result.",
+            no: "Crews are hired on the open market, as they were in every coal town that is now empty." },
+          { id: "bond", label: "Closure bond in escrow", note: "Cash held for rehabilitation, before first ore.", cost: 9,
+            need: { site: 2, state: 1, science: 1, money: -2 },
+            yes: "The bond is lodged, so closure is funded even if the operator is not here to fund it.",
+            no: "No bond is lodged. If this is abandoned mid-life, rehabilitation is a line in somebody's future budget." }
+        ]
+      },
+      {
+        type: "allocate", shape: "Who gets paid", pool: 10,
+        place: "What the valley is owed", year: "Round 4",
+        situation: "The project will produce revenue, jobs and a tax base. Where it lands is a decision, not a consequence. Every point you move here is a point of licence spent, and there are not enough points for six interests — which is the actual finding of this exercise and the reason it is set up this way.",
+        ask: "Distribute what you have. You will not have enough.",
+        detail: [
+          "Shipping concentrate and refining elsewhere is how a country stays poor politely. Serbia has been the quarry before, and so have West Virginia, the Niger Delta and the Bolivian altiplano.",
+          "Jadarite yields boric acid as well as lithium, and boron has a market that does not care what happens to battery demand. A plant built for both is a different proposition than a mine built for one.",
+          "Benefit sharing that is not written down, audited and enforceable is called goodwill, and goodwill has never once survived a change of chief executive."
+        ],
+        discuss: [
+          "You could not fund everyone. Say plainly who you chose not to.",
+          "Is a job a benefit, or the price of the benefit?",
+          "Would this split survive the project closing early?"
         ]
       }
     ]
   },
 
-  /* ====================================== CASE 2 — COOK ISLANDS EEZ */
   {
-    id: "cook", title: "Case Two: The Cook Islands", sub: "National waters · cobalt-rich nodules at 5,000 m", realm: "sea", art: "lagoon",
-    ore: { label: "first production", years: 6 },
-    intro: "Fifteen thousand people hold an exclusive economic zone of 1.9 million square kilometres, and an estimated 6.7 billion tonnes of wet nodules lie on the floor of it — unusually rich in cobalt, and in titanium and rare earths. Because this is national water, the International Seabed Authority has no say, there is no common heritage of mankind to invoke, and no two-year rule to argue about. Rarotonga licenses this under its own law. Nobody outside can tell them no.",
-    cast: [
-      { who: "Teremoana Ngatokorua, 58", role: "fisher, Marae Moana advisory group" },
-      { who: "Dr Rangi Tupou, 39", role: "marine biologist, returned from Auckland" },
-      { who: "Mata Henry", role: "seabed minerals authority" }
-    ],
+    id: "cook", title: "Act Two: The Cook Islands", sub: "National waters · cobalt-rich nodules at 5,000 m",
+    realm: "sea", art: "lagoon", side: "sea",
+    intro: "Same six interests. Same four questions, in the same order. Fifteen thousand people hold an exclusive economic zone of 1.9 million square kilometres, with an estimated 6.7 billion tonnes of wet nodules on the floor of it — unusually rich in cobalt. This is national water: no International Seabed Authority, no common heritage of mankind, nobody outside who can say no. Watch how little the questions change.",
     beats: [
       {
-        type: "choice", art: "lagoon",
-        place: "Eighty-four percent", year: "Round 6",
-        situation: "The whole exclusive economic zone — 1.9 million square kilometres — was declared a marine park, Marae Moana, by Act in 2017. The Act bars fishing and seabed minerals within fifty nautical miles of each of the fifteen islands: about 16%. In the other 84% the same Act permits mining, subject to study. The park is not a wall. It is a door with conditions on it.",
-        ask: "The door is open and it is their door. Do you walk through it?",
-        voices: [
-          { who: "Mata Henry", role: "seabed minerals authority", line: "People hear 'marine park' and assume we banned it. We zoned it. The no-go rings are where our people live and fish; we left the abyss open on purpose. We are fifteen thousand people with one export and a sea-level problem we did not cause." },
-          { who: "Teremoana Ngatokorua, 58", role: "fisher, Marae Moana advisory group", line: "I sat on the committee that drew those rings. We drew them around home. I did not understand at the time that I was also drawing a line around the part we were giving away." }
-        ],
+        type: "choice", shape: "A permit",
+        place: "The other 84%", year: "Round 5",
+        situation: "The entire zone was declared a marine park — Marae Moana — by Act in 2017. The Act bars fishing and seabed minerals within fifty nautical miles of each of the fifteen islands: about 16%. In the other 84% the same Act permits mining, subject to study. The park is not a wall. It is a door with conditions on it, and it is their door.",
+        ask: "Walk through it, close it, or open it block by block.",
         detail: [
-          "The Marae Moana Act 2017 covers the whole EEZ. The fifty-nautical-mile exclusion zones around the fifteen islands amount to roughly 324,000 km², about 16%, and prohibit both large-scale commercial fishing and seabed minerals activity. Outside them the Act expressly contemplates mining subject to assessment.",
-          "Heffernan's book is about the Area — the seabed beyond national jurisdiction, where the common-heritage argument lives. None of it applies here. Every argument this council might make about 'who speaks for mankind' is unavailable: the answer is a parliament in Rarotonga, elected by the people whose water it is.",
-          "Three exploration licences were granted in February 2022, to Moana Minerals Limited (a subsidiary of the US-based Ocean Minerals), Cobalt (CIC) Limited, and CIIC Seabed Resources Limited, a partnership between the Cook Islands government and the Belgian company GSR. The government is a licence holder as well as the regulator."
+          "The exclusion zones total roughly 324,000 km². Outside them the Act expressly contemplates seabed mining. A marine park that permits mining across most of itself is not a contradiction — it is a zoning decision, made by the people who live there.",
+          "Three exploration licences were granted in February 2022 — Moana Minerals, Cobalt (CIC), and CIIC Seabed Resources, a partnership between the Cook Islands government and Belgium's GSR. The government regulates one licence and co-owns another.",
+          "Every argument available in Act One about 'who speaks for these people' is unavailable here. The answer is a parliament in Rarotonga, elected by them."
         ],
         discuss: [
-          "You invoked Consent for a Serbian valley. Does Consent here mean the Cook Islands' right to say yes?",
-          "A marine park that permits mining in 84% of itself — compromise, or brand?",
-          "The government regulates one licence and co-owns another. Name the conflict, then say whether it disqualifies them."
+          "In Act One you may have invoked consent to stop a mine. Here consent is being used to start one. Same principle?",
+          "A council of wealthy states telling the Pacific what to do with its own seabed — how does that sound said out loud?",
+          "Oil was found off small states before. How did that go, and who decided?"
         ],
         choices: [
-          { key: "A", label: "Respect the zoning as written", sub: "The rings hold, the abyss is open. Their law, their call.",
-            d: { comm: 10, econ: 10, env: -14, trust: 4 }, up: ["consent", "benefit", "supply"], vio: ["reversible"], flag: "cook_open",
-            out: { t: "Their door, their decision", x: "You take the Act at its word and the zoning as sovereign. A nation of fifteen thousand has made a lawful choice about its own water and your council declines to second-guess it. You have also just approved mining across an area the size of western Europe on a baseline nobody has finished measuring, and said 'they asked for it' out loud." } },
-          { key: "B", label: "Press to close the whole zone", sub: "Extend the no-mining area to the entire EEZ.",
-            d: { env: 18, comm: -12, econ: -12, trust: -8 }, up: ["reversible"], vio: ["consent", "benefit", "supply"], flag: "cook_closed",
-            out: { t: "Protection, unasked for", x: "You push to close the whole zone. Environmental groups abroad are delighted. Rarotonga points out that a council of wealthy states has just told the Pacific what it may do with its own seabed, having missed its own climate finance commitments, and the quote travels further than your resolution does." } },
-          { key: "C", label: "Zone by zone, after baseline", sub: "Nothing opens until its own block is surveyed.",
-            d: { env: 10, trust: 10, econ: -6, comm: -2 }, up: ["reversible", "consent"], vio: ["supply"], flag: "cook_blocks",
-            out: { t: "Block by block", x: "Each block opens only once it has been described. It is slower than the licence holders want and faster than the ecologists want, and it has the single virtue that in twenty years someone will be able to say what changed. That is not nothing. It is also not a decision about whether to mine." } }
+          { key: "A", label: "Respect the zoning as written", sub: "The rings hold, the abyss opens. Their law.", cost: 6,
+            need: { state: 2, money: 2, work: 1, science: -2, site: -2 }, flag: "open",
+            out: { t: "Their door, their decision", x: "You take the Act at its word and the zoning as sovereign. You have also approved mining across an area the size of western Europe on a baseline nobody has finished, and said 'they asked for it' out loud, which is exactly what was said about every concession ever signed by a small state." } },
+          { key: "B", label: "Press to close the whole zone", sub: "Extend the no-mining rings to the entire EEZ.", cost: 14,
+            need: { science: 3, site: 2, state: -2, money: -2, work: -1 }, flag: "closed",
+            out: { t: "Protection, unasked for", x: "Environmental groups abroad are delighted. Rarotonga notes that the countries telling it to leave its seabed alone are the ones that burned the carbon, missed the finance commitments, and still have an economy — and then proceeds, because this is their water and your resolution is advice. You will spend the next two rounds setting conditions on a project you tried to stop." } },
+          { key: "C", label: "Block by block, after survey", sub: "Nothing opens until its own block is described.", cost: 12,
+            need: { science: 2, site: 1, state: 1, money: -1, buyer: -1 }, flag: "blocks",
+            out: { t: "Block by block", x: "Each block opens only once it has been described. Slower than the licence holders want, faster than the ecologists want, and it has the one virtue that in twenty years somebody will be able to say what changed." } }
         ]
       },
-
       {
-        type: "choice", art: "abyss",
-        place: "The extension", year: "Round 7",
-        situation: "The three exploration licences were due to expire in February 2027. In November 2025 the authority extended all three by five years, pushing any mining decision to 2032 at the earliest. The stated reason was that nobody yet knows enough. Five years of exploration is also five more years of sunk cost arguing for approval at the end of it.",
-        ask: "Extend, decide, or let them lapse.",
-        voices: [
-          { who: "Dr Rangi Tupou, 39", role: "marine biologist, returned from Auckland", line: "Every survey makes the case for the next survey, and the next survey is paid for by the people who want to mine. At some point 'we need more research' stops being science and starts being a way of not deciding." },
-          { who: "Mata Henry", role: "seabed minerals authority", line: "The alternative to extending was deciding in 2027 on what we knew in 2027, which was less. I would rather be accused of delay than of approving blind. The licences cost the holders money every year they run." }
-        ],
+        type: "slider", shape: "How much, how fast",
+        place: "How much of the floor", year: "Round 6",
+        situation: "Same shape as the schedule in Act One, with area in place of years. Nodules grow a few millimetres per million years, so whatever is lifted is lifted on a geological timescale. There is no version of this where waiting loses you the option. There are many where not waiting does.",
+        ask: "What share of the open zone do you licence?",
         detail: [
-          "The authority's own geologist has put it plainly in public: one day someone will have to make a decision about what to do, and it is clear today that we don't know enough to make a decision.",
-          "Te Ipukarea Society, the Cook Islands environmental organisation, has called for at least ten more years of meaningful research before any decision. Greenpeace has called for a ban outright.",
-          "Exploration licences create a constituency. Five more years of survey spending means five more years of jobs, contracts and local investment attached to the proposition that the survey ends in a mine. Scheyder's reporting finds the same ratchet on land, every time."
+          "In November 2025 the authority extended all three exploration licences by five years, pushing any commercial mining decision to 2032 at the earliest. The stated reason was that nobody yet knows enough.",
+          "A study commissioned by an environmental organisation found the return would more likely than not be negative. The government rejected it and asked for independent checking. Both responses are reasonable.",
+          "Cobalt is the weakest case in the whole sector: the fastest-growing battery chemistry contains none, and projected cobalt per battery has fallen more than threefold in four years. The headline metal here is the one the market is leaving."
         ],
         discuss: [
-          "Does more data make this decision easier, or only later?",
-          "Who pays for the research, and does that change what the research is for?",
-          "If the answer in 2032 is no, what did the five years cost the people who were waiting?"
+          "Is a smaller licence area a compromise, or a slower version of the same thing?",
+          "If the economics are negative, does the environmental argument still matter?",
+          "Compare your answer here to your answer in round 2. Were you consistent?"
         ],
-        choices: [
-          { key: "A", label: "Extend five years", sub: "What they actually did. Decide in 2032.",
-            d: { env: 6, trust: 4, econ: -4 }, up: ["reversible"], vio: ["sufficiency"], flag: "cook_extended",
-            out: { t: "2032", x: "The licences run on. The baseline gets better, the sunk cost gets bigger, and the decision moves to a council that will not be this one. You bought five years of knowledge and five years of momentum with the same signature, and only one of those was on the paper." } },
-          { key: "B", label: "Decide now, on what you have", sub: "No more extensions. Grant or refuse in this sitting.",
-            d: { trust: 12, econ: 4, env: -8 }, up: ["supply"], vio: ["reversible"], flag: "cook_now",
-            out: { t: "On the record, now", x: "You refuse to launder the decision through another survey. Whatever you choose is made on an admittedly incomplete baseline, in public, by people who can be named. Dr Tupou thanks you, and says you were wrong to, in the same sentence." } },
-          { key: "C", label: "Let them lapse", sub: "No extension. The licences expire in 2027.",
-            d: { env: 14, econ: -14, comm: -8, trust: -4 }, up: ["reversible", "sufficiency"], vio: ["benefit", "supply"], flag: "cook_lapsed",
-            out: { t: "Expired", x: "The licences run out and are not renewed. The survey vessels leave, taking the only funded science about this seafloor with them, and the contracts that employed forty people end. The nodules stay where they are, undescribed, which is both the most protective and the least informed outcome available to you." } }
+        slider: { key: "area", min: 0, max: 100, step: 25, start: 50, unit: "%", labelLow: "survey only", labelHigh: "the whole open zone" },
+        bands: [
+          { max: 0, t: "Survey only", cost: 8, need: { science: 3, site: 2, money: -2, work: -2, buyer: -1 }, flag: "surveyonly",
+            x: "Nothing is licensed to produce. The vessels keep mapping and the nodules stay where they are, undescribed in commercial terms and increasingly well described in scientific ones. The development problem that started this is precisely where it was." },
+          { max: 25, t: "A quarter", cost: 11, need: { science: 1, site: 1, state: 1, money: -1 }, flag: "quarter",
+            x: "A small licence area, which gives you a real test at a real scale and a result you can act on. It also establishes that production is a question of how much rather than whether, which everyone in the room understood when they voted for it." },
+          { max: 50, t: "Half", cost: 14, need: { money: 2, state: 2, work: 1, science: -1, site: -1 }, flag: "half",
+            x: "Half the open zone goes under licence. It is the number that looks moderate on a map and is larger than most countries. The revenue is real, the baseline is partial, and both of those will be true for a long time." },
+          { max: 100, t: "All of it", cost: 18, need: { money: 3, state: 2, work: 2, buyer: 2, science: -2, site: -2 }, flag: "all",
+            x: "The whole open zone. The Cook Islands becomes a mineral economy inside a decade, which is what Nauru became, and the comparison is made at every forum either country attends from now on." }
         ]
       },
-
       {
-        type: "choice", art: "flags", requires: "cook_open,cook_blocks",
-        place: "Whose flag", year: "Round 8",
-        situation: "A country of fifteen thousand does not process nodules. Somebody else's refinery, somebody else's navy, somebody else's development budget. Washington agreed seabed research cooperation in 2025 and a critical minerals memorandum in 2026. Beijing has an action plan of its own, after which New Zealand — whose passports Cook Islanders hold — froze part of its aid.",
-        ask: "Who does the Cook Islands take this to?",
-        voices: [
-          { who: "Mata Henry", role: "seabed minerals authority", line: "We are told to diversify our economy, and told which partners we may diversify it with. Our citizens carry New Zealand passports and our aid was frozen over a document we are entitled to sign. You will understand if we are not sentimental about who the good patron is." },
-          { who: "Teremoana Ngatokorua, 58", role: "fisher, Marae Moana advisory group", line: "My grandfather was told phosphate would make Nauru rich. It did, for a while. Then it ate four-fifths of the island and the money went. I am not asking whose flag. I am asking what happens here in sixty years." }
-        ],
+        type: "conditions", shape: "What you require",
+        place: "Before anything is lifted", year: "Round 7",
+        situation: "Same shape as the Drina. Different water, same question: what has to be true before a machine goes down, and who pays for it being true. Each condition is licence you do not get back, and the ones you decline here are the ones that will be quoted at you.",
+        ask: "Attach what you require.",
         detail: [
-          "Nauru is the precedent everyone in the Pacific cites and almost nobody outside it does: phosphate mining produced extraordinary per-capita wealth and left roughly four-fifths of the island uninhabitable. Heffernan's account of Nauru's later sponsorship of a seabed contractor is the same story asking for a second chance.",
-          "In April 2026 Ocean Minerals, which holds interests in two of the three licensed areas, announced a merger valued at around a billion dollars. The asset being valued is a licence to explore, not a mine.",
-          "The Cook Islands is a self-governing state in free association with New Zealand and its people are New Zealand citizens. That relationship is why the aid freeze had force, and why it was felt as something closer to a family argument than a diplomatic one."
+          "A collector test cut in 1989 is still visible on the seafloor. Recovery, where it has been measured, is on the order of decades to never.",
+          "Te Ipukarea Society, the national environmental organisation, has called for at least ten more years of research before any decision. The authority's own geologist has said publicly that nobody yet knows enough to decide.",
+          "Offshore oil required exactly these conditions and mostly got them after the first blowout rather than before. The regulatory history of the Gulf of Mexico is a list of things that are now required."
         ],
         discuss: [
-          "Is choosing a patron an exercise of sovereignty or a limit on it?",
-          "New Zealand froze aid over a signature. Leverage, or governance?",
-          "Benefit means an enforceable share. Enforceable in whose court?"
-        ],
-        choices: [
-          { key: "A", label: "Hedge: take all three", sub: "Research from one, capital from another, passports from the third.",
-            d: { econ: 12, trust: -10, comm: 4 }, up: ["benefit"], vio: ["consent"], flag: "cook_hedge",
-            out: { t: "Everybody's partner", x: "Rarotonga signs with everyone and commits to no one, which is the rational play for a small state and reads from outside as unreliability. The money arrives. So does a permanent position in somebody else's strategic framing, and a seat at a table where the Cook Islands is an agenda item rather than a participant." } },
-          { key: "B", label: "A sovereign fund, conditions attached", sub: "One partner, a published royalty, a fund that pays residents.",
-            d: { econ: 6, comm: 14, trust: 12, env: -4 }, up: ["benefit", "consent"], flag: "cook_fund",
-            out: { t: "Written down", x: "A single partnership, a published royalty rate, and a sovereign fund that disburses to residents annually and is audited where anyone can read it. It is less money than the hedge. It is money that still exists in 2070, which is the only test Teremoana asked you to apply." } },
-          { key: "C", label: "Keep it domestic for now", sub: "No minerals agreements with any outside power.",
-            d: { econ: -12, trust: 8, comm: -4, env: 6 }, up: ["reversible"], vio: ["supply", "benefit"], flag: "cook_domestic",
-            out: { t: "No agreements", x: "The Cook Islands signs nothing and keeps every option. It also keeps one export, a tourism season, and a sea level rising on a schedule set elsewhere. Sovereignty is intact and the development problem that started this is exactly where it was." } }
-        ]
-      },
-
-      {
-        type: "choice", art: "ledger",
-        place: "The number nobody wants", year: "Round 9",
-        situation: "A study commissioned by an environmental organisation found the return on Cook Islands nodule mining would, more likely than not, be negative. The government rejected it and asked for independent checking. Both responses are reasonable. Meanwhile the headline metal here is cobalt — and projected cobalt per battery has fallen more than threefold in four years, because the fastest-growing chemistry contains none.",
-        ask: "Commission the economics. Decide now whether you will publish it.",
-        voices: [
-          { who: "Dr Rangi Tupou, 39", role: "marine biologist, returned from Auckland", line: "We have spent four years arguing about whether it is safe. Nobody has seriously asked whether it is worth anything. If the answer is no, then every risk we have been weighing was weighed against a benefit that was not there." },
-          { who: "Mata Henry", role: "seabed minerals authority", line: "I will not accept a number commissioned by people who had already written the press release. Check it independently and I will live with it. But understand what you are asking: you are asking a country to publish, in advance, the finding that its only asset is worthless." }
-        ],
-        detail: [
-          "Cobalt is the clearest case in RMI's report. Chemistry change — principally the growth of lithium iron phosphate, which needs no nickel and no cobalt — is the single largest reason 2023 cobalt demand was not 138% higher than it was. The Cook Islands' nodules are valued for cobalt.",
-          "RMI finds announced mining projects already cover most of projected peak demand. There is no gap at all for nickel and cobalt; only lithium shows one, and only in the fastest battery-uptake case, at around 23%. Every mine in this game is competing against supply that has already been announced.",
-          "If this council funded the chemistry solution in round 3, this council is part of why the cobalt case is collapsing. The forecast at the top of your screen is not weather. Some of it is you."
-        ],
-        discuss: [
-          "If the economics are negative, does any of the environmental argument still matter?",
-          "Who should be allowed to commission the study that decides whether a country has an asset?",
-          "You may have made this deposit worthless by funding the loop. Is that a success?"
-        ],
-        choices: [
-          { key: "A", label: "Commission it, publish regardless", sub: "Independent, pre-committed, whatever it says.",
-            d: { trust: 16, econ: -6, comm: -4 }, up: ["reversible", "benefit", "sufficiency"], flag: "cook_published",
-            out: { t: "Whatever it says", x: "You pre-commit to publication and the number comes back weak. It is the most useful document anyone has produced about this seabed, and it costs the Cook Islands the negotiating position it had been building for four years. Dr Tupou calls it the first honest thing in the file. Nobody in Rarotonga thanks you." } },
-          { key: "B", label: "Commission it, keep it internal", sub: "Advice to government. Not for release.",
-            d: { econ: 8, trust: -14, comm: 2 }, vio: ["benefit", "consent"], flag: "cook_internal",
-            out: { t: "Advice to government", x: "The study is done properly and seen by eleven people. Rarotonga negotiates with better information than its counterparties, which is worth real money. It leaks in year three, as these do, and the leak is worse than the finding would have been." } },
-          { key: "C", label: "Don't commission it", sub: "The economics are the licence holders' problem.",
-            d: { econ: -4, trust: -10, env: -6 }, vio: ["sufficiency", "reversible"], flag: "cook_blind",
-            out: { t: "Their problem", x: "You leave the economics to the people with an interest in the answer. Four more years of environmental assessment proceed, carefully and at considerable expense, measuring the risk side of a cost-benefit calculation whose benefit side nobody has checked." } }
-        ]
-      },
-
-      {
-        type: "spend", art: "loop",
-        place: "The loop, closing", year: "Round 10",
-        situation: "Second paper, last money. What you funded in round 3 has begun to show up; what you declined has not. The argument is that mining is a one-off: mine enough once, recover it at ninety-odd percent, and the system runs for centuries on the stock. About 125 million tonnes gets the world there — against 2,150 million tonnes of oil burned for road transport every year.",
-        ask: "Close what you can. This is the last round that pays out.",
-        voices: [
-          { who: "Secretariat note", role: "final paper", line: "China's largest battery manufacturer expects recycling to deliver mineral independence there by 2042. Whatever this council decides, somebody is closing a loop. The only open question is whether the metal in it was mined with your conditions attached or somebody else's." },
-          { who: "Dr Rangi Tupou, 39", role: "marine biologist, returned from Auckland", line: "The sea floor will still be there in 2042. Nodules grow a few millimetres per million years, so there is no version of this where we lose the option by waiting. There are many where we lose it by not." }
-        ],
-        detail: [
-          "After ten to fifteen years of service a battery's mineral content can be collected and recycled at 90–94% or better. Improving overall battery and transport efficiency by 6–10% per decade covers the remaining losses. That is the arithmetic that turns mining from a flow into a one-off.",
-          "Known reserves of lithium, cobalt and nickel are about twice the total virgin demand even the high cases require. Under accelerated circularity the battery sector needs less than 40% of current lithium reserves, 50% of cobalt and 60% of nickel to reach self-sufficiency.",
-          "The honest caveat, which the report makes itself: as prices fall, the incentive to recover and recycle falls with them. A closing loop undermines the economics of closing the loop. It needs rules, not hope."
-        ],
-        discuss: [
-          "Three rounds ago these were abstractions. Which would you fund first if you started again?",
-          "If the loop closes, what happens to the countries whose development plan was a mine?",
-          "Nodules grow millimetres per million years. Does that make waiting free, or make waiting an excuse?"
+          "Which of these would you have required of an oil rig? Why is this different?",
+          "Who should pay for the baseline — the licence holder, the state, or the buyer?",
+          "You required things of a Serbian river. Did you require the same here?"
         ],
         options: [
-          { id: "L2_chem", loop: "chem", cost: 0, label: "A · Change the chemistry", note: "Still the largest single lever. Matures in 1 round.",
-            d: { econ: -5, env: 4 }, up: ["sufficiency"],
-            yes: "Chemistry support is funded.", no: "Chemistry support is declined again." },
-          { id: "L2_density", loop: "density", cost: 0, label: "B · Raise energy density", note: "Up about 25% since 2015. Matures in 1 round.",
-            d: { econ: -4, env: 3 }, up: ["sufficiency"],
-            yes: "Density research is funded.", no: "Density research is declined again." },
-          { id: "L2_recycle", loop: "recycle", cost: 0, label: "C · Recycle the stock", note: "Most lithium-ion already is. Matures in 2 rounds.",
-            d: { econ: -7, env: 6 }, up: ["sufficiency", "reversible"],
-            yes: "Collection and recovery capacity is funded.", no: "Recovery capacity is declined again, with the first big retirement wave arriving." },
-          { id: "L2_life", loop: "life", cost: 0, label: "D · Extend the lifetime", note: "Second life in grid storage. Matures in 2 rounds.",
-            d: { econ: -4, env: 4 }, up: ["sufficiency"],
-            yes: "Lifetime and second-life rules are funded.", no: "Lifetime extension is declined again." },
-          { id: "L2_vehicle", loop: "vehicle", cost: 0, label: "E · Make vehicles efficient", note: "Right-size the fleet. Matures in 3 rounds.",
-            d: { econ: -5, env: 5 }, up: ["sufficiency"],
-            yes: "Vehicle efficiency standards are funded.", no: "Vehicle efficiency is declined again." },
-          { id: "L2_mobility", loop: "mobility", cost: 0, label: "F · Make mobility efficient", note: "The broadest benefits, the slowest payout.",
-            d: { econ: -6, env: 5, comm: 5 }, up: ["sufficiency"],
-            yes: "Mobility programmes are funded.", no: "Mobility programmes are declined again." }
+          { id: "seabaseline", label: "Independent baseline survey", note: "Describe it before it is lifted. One chance.", cost: 8,
+            need: { science: 3, site: 1, money: -1 },
+            yes: "The baseline is funded and independent, so in twenty years somebody can say what was there.",
+            no: "No independent baseline. Whatever is down there is now a matter of opinion, forever." },
+          { id: "plume", label: "Plume discharge limits", note: "Release at depth, with enforceable thresholds.", cost: 7,
+            need: { science: 2, site: 2, money: -1 },
+            yes: "Discharge depth and sediment thresholds are written in and monitored.",
+            no: "Sediment is released wherever the vessel finds convenient, which models say is further than models said." },
+          { id: "observers", label: "Independent observers aboard", note: "Not employed by the licence holder.", cost: 6,
+            need: { science: 1, site: 2, state: 1, money: -2 },
+            yes: "Observers sail on every campaign and report to the authority, not the operator.",
+            no: "Compliance is self-reported, which is how fisheries were run until it stopped working." },
+          { id: "crew", label: "Cook Islands crew requirement", note: "A share of berths and shore contracts, by law.", cost: 6,
+            need: { work: 3, site: 1, state: 1, money: -1 },
+            yes: "Berths and port contracts are reserved, so the work exists on the islands and not only off them.",
+            no: "Crews are hired internationally and the port handles transits. The deposit is local; the jobs are not." },
+          { id: "fund", label: "Audited sovereign fund", note: "Royalties to a published, audited fund. Not the budget.", cost: 9,
+            need: { state: 2, site: 2, money: -2 },
+            yes: "Royalties go to a fund that is published and audited, so the money still exists after the deposit does not.",
+            no: "Royalties go to general revenue, where they are indistinguishable from any other year's money." }
+        ]
+      },
+      {
+        type: "allocate", shape: "Who gets paid", pool: 10,
+        place: "What the ocean is owed", year: "Round 8",
+        situation: "Last distribution. Same six interests you have been failing to satisfy since round one, now with less licence than you had then. Nauru is in this room whether or not anyone says the word: phosphate made it briefly rich and left four-fifths of the island uninhabitable, and the money is gone.",
+        ask: "Distribute what is left.",
+        detail: [
+          "Nauru's phosphate produced extraordinary per-capita wealth and left roughly four-fifths of the island uninhabitable. Every Pacific state cites it; almost nobody outside the Pacific does.",
+          "In April 2026 one licence holder with interests in two of the three areas announced a merger valued at around a billion dollars. The asset being valued is a licence to explore, not a mine.",
+          "The Cook Islands is self-governing in free association with New Zealand and its people are New Zealand citizens. When Wellington froze part of its aid over a minerals agreement with Beijing, the leverage was real and so was the resentment."
+        ],
+        discuss: [
+          "Compare this split with round 4. Did you treat a fisher like a farmer?",
+          "If the deposit turns out to be worth nothing, which of these allocations still mattered?",
+          "Sixty years from now, who is still being paid?"
         ]
       }
     ]
   }
 ];
 
-/* ---------------------------------------------------------- floors -- */
-/* A meter hitting zero inserts an emergency decision. Both options are
-   bad; that is what zero means. */
-const FLOORS = {
-  env: {
-    place: "The injunction", year: "Emergency",
-    situation: "A court has suspended works on the application of parties you declined to hear, citing the absence of the baseline you declined to order. The suspension is indefinite and the reasoning quotes your own minutes back at you.",
-    ask: "You are out of environmental credit. Pay in something else.",
-    voices: [{ who: "Dr Milena Pavlović, 44", role: "hydrogeologist", line: "I offered you this measurement for the price of a month. You will now buy it for the price of a year, under oath, with a judge deciding what it means." }],
-    detail: ["Emergency rounds are inserted, not substituted. The crisis costs you a decision slot you had not budgeted for, which is exactly what crises do."],
-    discuss: ["Which earlier decision put you here? Name the round."],
-    choices: [
-      { key: "A", label: "Fund the full remediation", sub: "Stop everything. Measure. Pay for it out of the project.",
-        d: { env: 26, econ: -18, trust: 4 }, up: ["reversible"],
-        out: { t: "Bought at the worst price", x: "The work stops and the survey happens properly, two years late and at four times the cost, and the environment meter comes back off the floor. Every other programme in your budget absorbs the difference." } },
-      { key: "B", label: "Appeal and keep working", sub: "Contest the injunction. Carry on under the old permit.",
-        d: { env: 6, econ: 4, trust: -18, comm: -10 }, vio: ["reversible", "consent"],
-        out: { t: "Under appeal", x: "You contest it and keep the machines running. You win the procedural point eighteen months later, by which time the phrase 'working under appeal' has attached itself permanently to your council's name." } }
-    ]
-  },
-  comm: {
-    place: "The withdrawal", year: "Emergency",
-    situation: "The community bodies have withdrawn from the process entirely and issued a joint statement explaining why. They are not negotiating. They are leaving, publicly, with dates and quotations.",
-    ask: "There is no consultation left to consult. Decide without it.",
-    voices: [{ who: "Vesna Tadić, 61", role: "raspberry grower", line: "We came to eleven meetings. I can tell you what was decided before each of them. We are not coming to the twelfth so you can write down that we were consulted." }],
-    detail: ["A withdrawal is not an absence of a view. It is the strongest available statement of one, and it removes your ability to claim process."],
-    discuss: ["What would have had to be true for them to still be in the room?"],
-    choices: [
-      { key: "A", label: "Suspend until they return", sub: "No decisions taken in their absence. Indefinite.",
-        d: { comm: 24, trust: 10, econ: -16 }, up: ["consent"],
-        out: { t: "Adjourned", x: "The file stops moving. The valley is not consulted into a result it rejected, and three of your deadlines pass. The company's lawyers begin using the word 'expropriation' in correspondence." } },
-      { key: "B", label: "Proceed on the record as it stands", sub: "The consultation happened. Their absence is their choice.",
-        d: { comm: 4, econ: 10, trust: -20 }, vio: ["consent", "benefit"],
-        out: { t: "Deemed consulted", x: "You proceed on eleven meetings' worth of minutes and a withdrawal letter, and the phrase 'deemed consulted' enters the record. It will be read out at every subsequent hearing your council holds, in any jurisdiction, for years." } }
-    ]
-  },
-  econ: {
-    place: "The financing collapses", year: "Emergency",
-    situation: "The price has gone. Lenders have repriced the project, the equity partner has written down its stake, and the conditions you attached are being blamed for a collapse the commodity cycle caused. Both halves of that sentence are being quoted selectively.",
-    ask: "There is no money. Choose which promise you break.",
-    voices: [{ who: "Nikola Đorđević", role: "ministry of mining and energy", line: "I warned you the conditions had a price. I did not tell you the price would arrive in a year when the metal had none. Nobody did. That is the part nobody models." }],
-    detail: ["RMI's closing warning: as the six solutions bite, prices fall and the system rings like a bell — fewer new mines, and less incentive to recycle at the moment recycling must carry the load."],
-    discuss: ["Was this the conditions, or the cycle? Can you tell from inside the room?"],
-    choices: [
-      { key: "A", label: "Strip the conditions to save the project", sub: "Keep the jobs. Drop what the jobs were conditional on.",
-        d: { econ: 22, env: -16, comm: -14, trust: -8 }, vio: ["reversible", "benefit"],
-        out: { t: "Saved, and hollowed", x: "The financing closes and the project survives with the protections removed. Everything your council spent four rounds attaching is gone in one, and the minutes show it was always the first thing available to trade." } },
-      { key: "B", label: "Let it fail and fund the loop", sub: "The project dies. The money goes to circularity.",
-        d: { econ: -6, env: 14, trust: 12 }, up: ["sufficiency", "reversible"], flag: "loop_pivot",
-        out: { t: "Redirected", x: "You let the project go and move what is left into recovery and efficiency. It produces no metal this decade and a great deal in the next one, and you will not be in office to collect the credit. The region that was promised the mine is told about the loop." } }
-    ]
-  },
-  trust: {
-    place: "The charter is struck", year: "Emergency",
-    situation: "The secretariat has formally noted that your council's adopted principles no longer bear any relationship to its decisions, and has moved to strike the charter from the record rather than leave a document in the file that the minutes contradict.",
-    ask: "Your own words are being withdrawn from you. Respond.",
-    voices: [{ who: "Secretariat note", role: "tabled without debate", line: "The charter is a commitment or it is a letterhead. It has been cited in four of your decisions and contradicted in more. Leaving it in the file is the greater dishonesty." }],
-    detail: ["Once struck, breaches stop scoring — which sounds like relief and is the worst thing that can happen to you in this game. You can buy one principle back. Only one."],
-    discuss: ["Is a charter you cannot keep worse than no charter at all?"],
-    choices: [
-      { key: "A", label: "Let it be struck", sub: "Remove the charter. Decide case by case from here.",
-        d: { trust: 14, comm: -8 }, flag: "charter_void",
-        out: { t: "Unbound", x: "The charter comes out of the file. Nothing you do from here can breach it, and nothing you do from here can be held to it. The room feels lighter. That feeling is the problem, and it will be in the ending." } },
-      { key: "B", label: "Buy one principle back", sub: "Keep one. Fund the thing it demands, properly, now.",
-        d: { trust: 22, econ: -20, comm: 6 }, flag: "charter_rebought",
-        out: { t: "One, kept", x: "You surrender one principle and pay, in public and in cash, for the other. It is the most expensive round in the game and the only one that buys back credibility rather than spending it." } }
-    ]
-  }
-};
-
 /* --------------------------------------------------------- endings -- */
-/* Scored on breaches, on whether the loop closed, and on whether you
-   bought something the world stopped needing. Not on meters alone. */
+/* Scored on the one number, on how many interests you actually met, and
+   on whether anything got built. */
 const ENDINGS = [
-  { id: "loop", art: "endGood",
-    test: (s, b, L) => !L.stranded && L.closed >= 4 && b <= 1 && s.econ >= 38,
-    title: "You mined once",
-    text: "Four of the six solutions funded and running, a charter broken at most once, and a supply chain that will be feeding itself long after this council is dissolved. You approved less than your successors wanted and spent more than your treasury wanted, and the result is the only outcome in this game where the metal keeps arriving without anything new being opened. Nobody will be able to point at the thing you built, because the thing you built is an absence of mines." },
-  { id: "kept", art: "endGood",
-    test: (s, b, L) => !L.stranded && b === 0 && s.env >= 48 && s.comm >= 48 && s.econ >= 40,
-    title: "You kept your word",
-    text: "Ten rounds and not one breach of a charter you adopted before you knew what it would cost. From outside this looks like a great many meetings and a slow permit. It is also the rarest result available here, and your successors will be measured against it whether they find that fair or not." },
-  { id: "stranded", art: "endBad",
-    test: (s, b, L) => L.stranded,
-    title: "A mine with nowhere to go",
-    text: "You approved it, the valley gave up what it was asked to give up, and the metal arrived into a market that had been quietly engineering its way out of needing it for a decade. The write-down is public. The hole is permanent. Every forecast that said this would happen was on your screen the whole time, revised in the same direction round after round, and the room read it as noise." },
-  { id: "hollow", art: "endBad",
-    test: (s, b) => b >= 4,
-    title: "The charter was decoration",
-    text: "Two principles, adopted in public, broken four times or more. Every breach was defensible in the room and the sum of them is a council whose written commitments mean nothing to anyone who has read the minutes. Your charter is now cited in other people's filings as evidence that charters are theatre." },
-  { id: "extractive", art: "endBad",
-    test: (s) => s.econ >= 68 && (s.comm < 38 || s.env < 36),
-    title: "Delivered, and nobody forgot how",
-    text: "The lithium and the nodules both arrive, on schedule, at scale. Behind the production chart: a chemical plant upstream of a capital city's water, an abyssal plain under contract before anyone finished counting what lived on it, and two communities who were told their objection had been heard. All of that is true at once, and neither deposit comes back." },
-  { id: "paralysed", art: "endMixed",
-    test: (s, b, L) => s.econ < 34 && L.closed <= 1,
-    title: "Nothing moved, and nothing changed",
-    text: "You approved almost nothing and funded almost nothing. The lithium came from brine fields with no hearings, the cobalt from a supply chain you declined to regulate, and the loop that might have made both unnecessary went unbuilt because it was never urgent in the round you were in. Refusing a mine is not the same as not needing one. Your council is wound up and its powers given to bodies chosen for their willingness to decide." },
+  { id: "stopped", art: "endBad", test: (L) => L.licence <= 0,
+    title: "The project is stopped",
+    text: "Not by a regulator and not by a court. You ran out of the only thing that was holding this together: the willingness of the people around it to let it continue. Work halts, the money leaves, and the deposit stays exactly where it was — which some of the room wanted, achieved in the one way that teaches nobody anything and leaves the next project to be decided by people who watched this." },
+  { id: "all", art: "endGood", test: (L) => L.met === 6 && L.licence >= 30,
+    title: "All six, and still standing",
+    text: "Every one of the six interests ended with enough to stay in the room, and the licence to operate survived. This is the hardest result available and the dullest to describe: no side won, nothing was sacrificed to make a point, and the project is still arguable in public. It took more licence than any other line of play and it is the only one where the people on the deposit, the people who need the metal, and the people who have to measure the damage are all still talking to each other." },
+  { id: "balanced", art: "endGood", test: (L) => L.met >= 5 && L.licence >= 30,
+    title: "Five of six, and still standing",
+    text: "You met five of the six interests and kept the licence to operate. Nobody got what they asked for and everybody got enough to stay in the room, which is the only definition of success this exercise permits. It cost more and moved slower than any version where you picked a side, and it is the only outcome where the argument can continue after you leave." },
+  { id: "extractive", art: "endBad", test: (L) => L.starved.includes("site") && L.licence >= 30,
+    title: "Delivered, over the people who live there",
+    text: "The metal arrives. Behind the production chart is a valley that was told its objection had been heard and a fishing ground that was zoned around rather than asked. You held the licence by paying everyone except the people standing on the deposit, which is precisely the arrangement coal made, and oil after it, and it held for both of them for about a generation." },
+  { id: "blocked", art: "endMixed", test: (L) => L.built === 0,
+    title: "Nothing was built",
+    text: "Two deposits, eight rounds, and no project. The valley keeps its water and the seafloor keeps its nodules. The lithium came from a brine field with no hearings and the cobalt from a supply chain nobody in this room regulates, and the emissions you avoided at home landed in an airshed you will never visit. Refusing a mine is not the same as not needing one." },
+  { id: "starved", art: "endBad", test: (L) => L.starved.length >= 3,
+    title: "Three interests abandoned",
+    text: "You kept the project alive by starving half the room. Each of those decisions was defensible on the day and the sum of them is a project that exists on sufferance, held together by a licence that is one bad quarter from gone. Ask whose need you never once funded, and then ask why that was the easy one to skip." },
   { id: "muddle", art: "endMixed", test: () => true,
     title: "The long compromise",
-    text: "Some metal, some damage, a partly funded loop, a great deal of litigation, and a charter you mostly kept. The transition proceeds at roughly three-quarters of the pace the models require, which is simultaneously a failure and better than anyone else managed this decade. The same arguments resume, about the next valley and the next stretch of seafloor." }
-];
-
-const FATES = [
-  { who: "Vesna", if: "jadar_sunset", yes: "knows, for the first time in five years, what her land is going to be. She plants.",
-    no: "is still waiting to find out whether she lives on a farm or on a deposit." },
-  { who: "Milena", if: "baseline", yes: "measured the Drina before anything touched it, and the record exists whatever happens next.",
-    no: "spends her career arguing about a river nobody measured first." },
-  { who: "Nikola", if: "jadar_refine", yes: "got the refinery, the tax base and the chemical plant, and defends all three in Brussels.",
-    no: "watches the value added two borders away, and files the report about it himself." },
-  { who: "Teremoana", if: "cook_fund", yes: "collects from a fund audited where anyone can read it. It is smaller than the hedge would have been, and it is still there.",
-    no: "was consulted, thoroughly, and is not named in the agreement." },
-  { who: "Rangi", if: "cook_published", yes: "has the one honest document in the file, and the distinction of being thanked for it by nobody at home.",
-    no: "is still being asked whether it is safe, by people who never established whether it was worth anything." },
-  { who: "Mata", if: "cook_lapsed", yes: "watched the survey vessels leave with the only funded science about her country's seabed.",
-    no: "is still regulating one licence and co-owning another, and has stopped being asked about it." }
+    text: "Some metal, some damage, some money in the right hands, a licence that held. The transition proceeds at roughly three-quarters of the pace the models require, which is simultaneously a failure and better than anyone else managed this decade. The same six interests will be in the room for the next deposit, and so will the same arithmetic." }
 ];
 
 const DEBRIEF = {
   questions: [
-    "You wrote the charter before you knew the facts. Would you adopt the same two now?",
-    "Serbia had a court order telling it to proceed. The Cook Islands had a law of its own permitting it. Which was harder to act against, and why?",
-    "You invoked Consent for a valley of farmers. Did it mean the same thing for a nation of fifteen thousand exercising it to say yes?",
-    "The loop paid out after the round that needed it. Did that change what you funded, or only how you felt about it?",
-    "If funding circularity made a deposit worthless, did you protect the seabed or devalue somebody's only asset? Can it be both?",
-    "Name the thing you would have needed to know, that nobody in 2026 could have told you."
+    "The two acts had the same six stakeholders and the same four questions. Did you answer them the same way? Where didn't you, and why?",
+    "Name the interest you funded least. Was that a decision or a habit?",
+    "The product is cleaner than coal. The process is a mine. Does the first fact buy the second any leeway at all?",
+    "You never had enough licence for six interests. Is that a flaw in the game or a description of the job?",
+    "Both of these projects are, in reality, suspended or undecided. Was that the right answer all along, or just the one nobody had to defend?"
   ],
   real: [
-    ["Jadarite", "Real. Discovered in the Jadar valley in 2004 and found nowhere else on Earth. USGS put the deposit at 118 million tonnes of ore at 1.8% lithium oxide."],
-    ["The revocation and the ruling", "Real. Serbia revoked the spatial plan in January 2022 after mass protests. On 11 July 2024 the Constitutional Court held the revocation unconstitutional, and noted it was not itself reinstating the 2020 plan. The government restored it by decree on 16 July."],
-    ["The memorandum", "Real. One week after the ruling, Serbia's mining minister and European Commission Vice-President Maroš Šefčovič signed a memorandum on critical raw materials, battery value chains and electric vehicles."],
-    ["Care and maintenance", "Real. The operator moved Jadar into care and maintenance in November 2025, citing no progress on permits. The project retains EU Strategic Project status, which was itself challenged before the Court of Justice in 2026."],
-    ["Marae Moana", "Real. The Marae Moana Act 2017 covers the whole 1.9 million km² EEZ. Fifty-nautical-mile exclusion zones around the fifteen islands — about 16%, some 324,000 km² — bar large-scale fishing and seabed minerals activity. The Act permits mining beyond them, subject to assessment."],
-    ["The licences", "Real. Three exploration licences granted February 2022 — Moana Minerals, Cobalt (CIC), and CIIC Seabed Resources, a government partnership with Belgium's GSR — extended five years in November 2025, putting any mining decision at 2032 or later."],
-    ["The economics", "Real and contested. A study commissioned by an environmental organisation concluded returns would more likely than not be negative; the government rejected it and called for independent checking."],
-    ["The loop", "Real. RMI, 'The Battery Mineral Loop', July 2024: six solutions, peak mined demand in the mid-2030s, near-zero mining demand achievable before 2050, around 125 million tonnes of one-off extraction against the 2,150 million tonnes of oil burned for road transport every year."],
-    ["The forecast you watched", "Real in direction. Without the chemistry, density and recycling gains since 2015, 2023 demand would have been 58% higher for lithium, 127% for nickel and 138% for cobalt. Announced projects already cover most of projected peak demand; only lithium shows a gap, around 23%, and only in the fastest-uptake case."],
+    ["Jadarite", "Real. Found in the Jadar valley in 2004 and nowhere else on Earth. USGS: 118 million tonnes of ore at 1.8% lithium oxide."],
+    ["The ruling and the decree", "Real. Serbia revoked the spatial plan in January 2022; the Constitutional Court held that revocation unconstitutional on 11 July 2024; the government restored the plan by decree on 16 July."],
+    ["Care and maintenance", "Real. The operator moved Jadar into care and maintenance in November 2025, citing no progress on permits. It holds EU Strategic Project status, challenged before the Court of Justice in 2026."],
+    ["Juukan Gorge", "Real. In 2020 the operator of Jadar destroyed rock shelters holding 46,000 years of occupation under a valid approval. Its chief executive resigned."],
+    ["Brumadinho", "Real. A tailings dam failure at an iron ore mine killed 270 people in 2019. Same engineering, different end product."],
+    ["Marae Moana", "Real. The 2017 Act covers the whole 1.9 million km² EEZ. Fifty-nautical-mile exclusion zones around the fifteen islands — about 16%, some 324,000 km² — bar fishing and seabed minerals. The Act permits mining beyond them, subject to assessment."],
+    ["The licences", "Real. Three exploration licences granted February 2022 — Moana Minerals, Cobalt (CIC), and CIIC Seabed Resources, a government partnership with Belgium's GSR — extended five years in November 2025, putting any decision at 2032 or later."],
+    ["The economics", "Real and contested. A study commissioned by an environmental organisation found the return would more likely than not be negative; the government rejected it and asked for independent checking."],
+    ["Cobalt", "Real. The fastest-growing battery chemistry, lithium iron phosphate, contains no cobalt and no nickel. Projected cobalt per battery has fallen more than threefold in four years."],
     ["Nauru", "Real. Phosphate produced extraordinary per-capita wealth and left roughly four-fifths of the island uninhabitable."],
-    ["Juukan Gorge", "Real. In 2020 the operator of Jadar destroyed rock shelters holding 46,000 years of occupation, under a valid approval. Its chief executive resigned."],
-    ["The charter", "Invented, and the only invented mechanic here. Everything it costs you is drawn from arguments both books record."],
-    ["The people", "Fictional composites written for this exercise. Quotations attributed to officials in the 'What else is true' panels are real and published; the voices in the scenes are not."]
+    ["Social licence", "Real as a concept and invented as a number. The industry phrase is 'social licence to operate'. Nobody scores it out of a hundred; everybody loses projects to it."],
+    ["The stakeholders", "Composites. The interests are real and documented; the figures on screen are not individuals."]
+  ],
+  sources: [
+    "Ernest Scheyder, The War Below (2024)",
+    "Olive Heffernan, The High Seas (2024)",
+    "RMI, The Battery Mineral Loop (July 2024)"
   ]
 };

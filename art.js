@@ -180,13 +180,43 @@ const coins = (x, y, units, color, label) => {
 };
 
 /* --------------------------------------------------------- scenes */
+/* ------------------------------------------------------------------
+   Six scenes. Two of them do the work.
+
+   Both case scenes read the SAME inputs — p.actRound (how far through
+   the act we are) and p.needs (how each of the six interests is faring)
+   — and both draw the same six figures in the same order along the
+   bottom. The valley and the seafloor are deliberately the same
+   picture with the water raised. That is the argument of the game,
+   made in the art rather than in a paragraph.
+
+   Everything ambient is animated: clouds drift, water breathes,
+   machines work, fish swim, dust puffs. The progression (pit depth,
+   collector descent, plume spread) advances with actRound, so the
+   picture changes as the class argues even when nothing is clicked.
+------------------------------------------------------------------- */
+
+/* a figure whose posture is its need: 0 starved, 4 fully met */
+const stakeFig = (x, y, need, col = C.ink, s = 1) => {
+  const pose = need <= 0 ? "walkaway" : need === 1 ? "sad" : need >= 4 ? "cheer" : need >= 3 ? "armsup" : "stand";
+  const cls = need >= 4 ? "anim-hop" : need <= 0 ? "anim-drift" : "";
+  return fig(x, y, s, pose, need <= 0 ? "#9b9280" : col, cls);
+};
+
+/* the six interests, drawn along the ground in a fixed order so the two
+   acts are visibly the same line-up */
+const stakeLine = (needs, y, xs, cols) =>
+  STAKEHOLDERS.map((st, i) => stakeFig(xs[i], y, (needs || {})[st.id] ?? 2, cols[i], 0.86)).join("");
+
+const SX = [72, 162, 252, 548, 638, 728];
+const SC = [C.ink, C.yellow, C.blue, C.red, C.teal, "#7a5ea8"];
+
 const ART = {
-  title: () => `
+  title: (v, p = {}) => `
     ${sun(680, 86)}${cloud(220, 118, 1.1)}${cloud(470, 76, 0.85)}${bird(120, 160)}
     ${hill("M0 300c120-56 220-44 320 0s260 40 480-28V500H0z", C.sand)}
     ${P("M0 362c150 30 300-10 460 14s240 10 340-16", C.ink, 4)}
-    ${sage(96, 322, 1.2)}${sage(190, 336, 0.9)}${sage(690, 318, 1.1)}
-    ${oak(300, 320, 0.8)}
+    ${rasp(96, 322, 1.2)}${rasp(190, 336, 0.9)}${oak(300, 320, 0.8)}
     <g>
       <path d="M470 500V392c0-28 24-50 54-50h120c30 0 54 22 54 50v108z" fill="#2b2622" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
       ${nodules(452, 6, 5)}${fish(506, 424, 0.7)}${fish(606, 468, 0.6, C.rose)}
@@ -194,245 +224,120 @@ const ART = {
     ${fig(150, 318, 1.15, "stand")}${fig(210, 330, 1, "point")}
     ${truck(600, 300, 0.8)}`,
 
-  /* 1. The Jadar valley — raspberries over the only jadarite on Earth.
-        The seam is drawn under the soil the whole time; what changes is
-        how much of the valley is still above it. */
+  /* ------------------------------------------------ ACT ONE: the valley */
   jadar: (v, p = {}) => {
-    const open = v === "A";
-    const surveyed = v === "B";
-    const held = v === "C";
+    const r = Math.min(4, p.actRound || 0);
+    const needs = p.needs || {};
+    const dead = v === "C" || p.flagDead;
+    const pit = dead ? 0 : r;                      // the hole deepens each round
+    const drop = 12 + pit * 19;                    // shallow enough to keep the line-up clear
+    const on = new Set(p.chosen || []);
+    const years = p.years;                          // live slider in round 2
+    const rushing = years != null && years <= 4;
+    const siteOk = (needs.site ?? 2) >= 3;
+    const sciOk = (needs.science ?? 2) >= 3;
     return `
       ${sun(690, 78)}${cloud(230, 104, 1.05)}${cloud(500, 70, 0.8)}${bird(130, 146)}
       ${hill("M0 318c140-48 240-36 340 4s250 30 460-20V500H0z", C.sand)}
+
+      <!-- the seam is always drawn: the thing everybody is arguing over -->
       <g opacity="0.9">
         ${P("M60 408c140-18 250 10 360-4s240-16 380 6", "#f4f0e2", 16)}
         ${P("M60 408c140-18 250 10 360-4s240-16 380 6", C.ink, 3)}
-        ${TXT(640, 452, "jadarite", 17, "#8a8172")}
       </g>
-      ${P("M0 348c120 16 190-14 300 2s250 26 500-6", C.blue, 7)}
-      ${TXT(96, 336, "DRINA", 15, C.blue)}
-      ${open
-        ? `<path d="M300 322q170 150 380 0z" fill="${C.dust}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
-           ${puff(470, 290, 1.1)}${digger(560, 300, 0.9, true)}${truck(690, 300, 0.7)}`
-        : surveyed
-        ? `${[340, 420, 500, 580, 660].map((x) => P(`M${x} 322v-34`, C.red, 4)).join("")}
-           ${[340, 420, 500, 580, 660].map((x) => CIRC(x, 284, 6, C.red, C.ink, 3)).join("")}
-           ${tag(500, 244, "UNDER ASSESSMENT", C.yellow, 220)}`
-        : `${rasp(360, 326, 1)}${rasp(440, 332, 0.9)}${rasp(520, 326, 1.05)}${rasp(610, 334, 0.95)}`}
-      ${held ? `${doc(690, 150, "CLAIM FILED")}` : ""}
-      ${rasp(120, 332, 1.1)}${rasp(196, 340, 0.95)}
-      ${fig(150, 330, 1.15, held ? "cheer" : open ? "sad" : "stand")}
-      ${fig(214, 338, 1.0, open ? "walkaway" : "point", C.teal)}
-      ${!open && !surveyed ? "" : rig(740, 318, 0.8)}`;
+
+      <!-- the river: it breathes, and it is downstream of everything -->
+      ${P("M0 348c120 16 190-14 300 2s250 26 500-6", C.blue, 7, "none").replace("<path ", '<path class="anim-drift" ')}
+      ${sciOk ? `${P("M150 348v-54", C.teal, 4)}${CIRC(150, 286, 9, "#fff", C.teal, 4)}` : ""}
+
+      ${pit > 0 ? `
+        <path d="M${356 - pit * 8} 322q${140 + pit * 14} ${drop * 2} ${280 + pit * 16} 0z"
+          fill="${C.dust}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
+        ${pit >= 2 ? puff(470, 290, 1 + pit * 0.08) : ""}
+        ${digger(300, 302, 0.78, true)}
+        ${pit >= 3 ? truck(690, 302, 0.62) : ""}` : `
+        ${rasp(390, 326, 1)}${rasp(470, 332, 0.9)}${rasp(550, 326, 1.05)}${rasp(630, 334, 0.95)}`}
+
+      ${on.has("drystack") ? `<path d="M300 500v-40h200l-18-30H318z" fill="${C.dust}" stroke="${C.ink}" stroke-width="5"/>` : ""}
+      ${on.has("bond") ? `<g><rect x="32" y="430" width="74" height="48" rx="5" fill="${C.yellow}" stroke="${C.ink}" stroke-width="5"/>${P("M32 452h74", C.ink, 4)}</g>` : ""}
+      ${rushing ? `<g class="anim-puff">${puff(400, 250, 1.3)}</g>` : ""}
+
+      ${siteOk ? `${rasp(40, 330, 1.1)}${rasp(792, 336, 1)}` : `${rasp(40, 330, 1.1)}`}
+      ${stakeLine(needs, 482, SX, SC)}
+      ${years != null ? tag(400, 150, `${years} YEARS TO FIRST ORE`, C.ink, 300) : ""}`;
   },
 
-  /* 2. The Drina — conditions you attach become things that exist.
-        Live: the picture gains hardware as the room picks cards. */
-  drina: (v, p = {}) => {
-    const on = new Set(p.chosen || []);
-    const dry = on.has("drystack");
-    return `
-      ${cloud(200, 80, 1)}${cloud(620, 64, 0.8)}${bird(130, 130)}
-      ${hill("M0 300h800v200H0z", "#cfe0d2")}
-      <path d="M0 356c120 22 200-18 320 4s250 30 480-8V500H0z" fill="${C.blue}" stroke="${C.ink}" stroke-width="5"/>
-      ${P("M0 392c140 18 230-12 350 6s240 20 450-4", "#8fc0e0", 5)}
-      ${TXT(76, 476, "DRINA", 18, "#eaf4fb")}
-      ${dry
-        ? `<path d="M300 300h260l-26-54H326z" fill="${C.dust}" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
-           ${P("M326 272h208", C.ink, 3)}${tag(430, 214, "DRY STACK", C.teal, 150)}`
-        : `<path d="M296 300h268v-70c0-10-10-18-22-18H318c-12 0-22 8-22 18z" fill="#b9a98c" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
-           ${P("M300 246h260", "#8d7f66", 10)}${tag(430, 186, "IMPOUNDMENT", C.red, 180)}`}
-      ${on.has("nodischarge")
-        ? `<g>${P("M564 262q70 0 70 40t-70 34", C.teal, 6)}${P("M620 320l14 16 14-16", C.teal, 5)}${tag(672, 232, "CLOSED", C.teal, 108)}</g>`
-        : `${P("M564 268q60 10 86 74", C.red, 6)}${P("M646 336l4 22 16-14", C.red, 5)}`}
-      ${on.has("baseline") ? `<g>${P("M150 388v-78", C.ink, 5)}${P("M134 324h32M134 344h32M134 364h32", C.ink, 3)}
-          ${CIRC(150, 302, 10, "#fff", C.teal, 4)}${tag(150, 262, "GAUGED", C.teal, 108)}</g>` : ""}
-      ${on.has("sanu") ? `<g>${fig(694, 300, 0.85, "stand", C.blue)}${fig(736, 300, 0.85, "point", C.blue)}
-          ${tag(716, 232, "REVIEW PANEL", C.blue, 164)}</g>` : ""}
-      ${on.has("bond") ? `<g><rect x="36" y="414" width="86" height="56" rx="6" fill="${C.yellow}" stroke="${C.ink}" stroke-width="5"/>
-          ${P("M36 440h86", C.ink, 4)}${CIRC(79, 440, 7, "#fff", C.ink, 4)}${TXT(79, 406, "BOND", 15)}</g>` : ""}
-      ${(p.chosen || []).length === 0 && p.locked ? TXT(430, 120, "nothing attached", 24) : ""}`;
-  },
-
-  /* 3. The loop — RMI's six solutions as a ring that closes.
-        Funded segments ink in. This is the only picture in the game
-        where the good outcome is a shape being completed. */
-  loop: (v, p = {}) => {
-    const chosen = new Set((p.chosen || []).map((id) => String(id).replace(/^L2?_/, "")));
-    const cx = 400, cy = 252, r = 132;
-    const pt = (a, rad = r) => [cx + rad * Math.cos((a * Math.PI) / 180), cy + rad * Math.sin((a * Math.PI) / 180)];
-    const segs = LOOP.map((s, i) => {
-      const a0 = -90 + i * 60 + 5, a1 = -90 + (i + 1) * 60 - 5;
-      const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
-      const [lx, ly] = pt((a0 + a1) / 2, r + 36);
-      const live = chosen.has(s.id);
-      return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)}A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}"
-            fill="none" stroke="${live ? C.teal : "#c6bda8"}" stroke-width="${live ? 16 : 9}" stroke-linecap="round"/>
-          ${TXT(lx, ly + 7, s.letter, live ? 26 : 22, live ? C.ink : "#9b9280")}`;
-    }).join("");
-    const n = chosen.size;
-    return `
-      <rect width="800" height="500" fill="#f1efe4"/>
-      ${segs}
-      <g>
-        <rect x="${cx - 46}" y="${cy - 34}" width="92" height="68" rx="8" fill="#fff" stroke="${C.ink}" stroke-width="5"/>
-        <rect x="${cx - 10}" y="${cy - 44}" width="20" height="12" rx="3" fill="${C.ink}"/>
-        ${P(`M${cx - 10} ${cy + 14}l16-30h-10l14-24`, C.yellow, 7)}
-      </g>
-      ${n >= 4
-        ? `${P(`M${cx - 92} ${cy + 108}q92 44 184 0`, C.teal, 5)}${TXT(cx, cy + 150, "the loop is closing", 24, C.teal)}`
-        : TXT(cx, cy + 150, n === 0 ? "nothing funded" : `${n} of six funded`, 24, "#8a8172")}
-      ${TXT(cx, 70, "MINE ONCE. RECOVER FOREVER.", 20, "#8a8172")}`;
-  },
-
-  /* 4. Where the value lands — live slider. At 0 the ore leaves on a
-        train; at 100 the plant is in the valley, next to the school. */
-  refinery: (v, p = {}) => {
-    const r = p.refine == null ? 50 : p.refine;
-    const stacks = Math.round((r / 100) * 3);
-    return `
-      ${sun(700, 76)}${cloud(240, 94, 1)}
-      ${hill("M0 322c140-40 240-30 340 2s250 26 460-16V500H0z", C.sand)}
-      ${P("M0 350c120 14 190-12 300 2s250 22 500-6", C.blue, 6)}
-      <g>
-        <rect x="286" y="236" width="196" height="86" fill="#ded3b8" stroke="${C.ink}" stroke-width="5"/>
-        ${P("M286 236l98-44 98 44", C.ink, 5)}
-        ${Array.from({ length: stacks }, (_, i) =>
-          `<rect x="${330 + i * 54}" y="${150}" width="26" height="90" fill="#cfc7b4" stroke="${C.ink}" stroke-width="5"/>
-           ${puff(343 + i * 54, 132, 0.8)}`).join("")}
-        ${TXT(384, 300, r >= 75 ? "REFINERY" : r >= 25 ? "PRIMARY" : "LOADOUT", 20)}
-      </g>
-      ${r < 50
-        ? `<g>${P("M560 318h210", C.ink, 5)}
-            ${[0, 1, 2].map((i) => `<rect x="${566 + i * 68}" y="282" width="56" height="30" rx="4" fill="${C.dust}" stroke="${C.ink}" stroke-width="5"/>`).join("")}
-            ${P("M770 300l22-10-22-10", C.ink, 5)}${TXT(666, 262, "CONCENTRATE, OUT", 17, "#8a8172")}</g>`
-        : `<g>${P("M600 322v-46", C.teal, 5)}${CIRC(600, 262, 16, "#fff", C.teal, 5)}${TXT(600, 269, "€", 20, C.teal)}
-            ${TXT(662, 232, "VALUE STAYS", 17, C.teal)}</g>`}
-      ${P("M96 322v-42h58v42", C.ink, 5)}${TXT(125, 268, "SCHOOL", 14)}
-      ${fig(190, 324, 1.05, r >= 75 ? "point" : "stand")}
-      ${rasp(690, 330, 0.9)}`;
-  },
-
-  /* 5. Care and maintenance — the worst picture in the game is the one
-        where nothing is happening. */
-  parked: (v, p = {}) => `
-    ${cloud(220, 92, 1.05)}${cloud(560, 70, 0.85)}
-    ${hill("M0 320c140-44 240-32 340 2s250 28 460-18V500H0z", "#ded8c4")}
-    ${P("M0 350c120 14 190-12 300 2s250 22 500-6", "#9db9cf", 6)}
-    <g opacity="0.75">${digger(300, 318, 0.95, false)}</g>
-    <path d="M250 318q70-54 142 0z" fill="#c9c2ae" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
-    ${[120, 180, 240, 300, 360, 420].map((x) => P(`M${x} 318v-50`, "#9b9280", 4)).join("")}
-    ${P("M110 282h320", "#9b9280", 4)}
-    ${sign(470, 236, 240, 64, "#fff", v === "B" ? "FOUR YEARS" : v === "C" ? "STATE HELD" : "CARE & MAINTENANCE", 19)}
-    ${v === "B" ? `${CIRC(590, 160, 34, "#fff", C.ink, 5)}${P("M590 160v-20M590 160l16 10", C.ink, 4)}` : ""}
-    ${v === "C" ? `${P("M676 318V180h84l-16 22 16 22h-84", C.blue, 5)}` : ""}
-    ${rasp(640, 330, 0.9)}${rasp(718, 336, 1)}
-    ${fig(150, 326, 1.15, v === "B" ? "stand" : "sad")}
-    ${TXT(400, 460, v === "B" ? "a clock, at last" : v === "C" ? "bought at the bottom" : "the fifth year of not knowing", 22, "#8a8172")}`,
-
-  /* 6. Marae Moana — the park is the whole zone. The ring is the part
-        that is actually closed. */
+  /* ------------------------------------------------ ACT TWO: the floor */
+  /* Identical composition to the valley, with the water raised. Same
+     six figures, same order, same positions. */
   lagoon: (v, p = {}) => {
-    const closed = v === "B";
-    const blocks = v === "C";
+    const r = Math.min(4, p.actRound || 0);
+    const needs = p.needs || {};
+    const closed = v === "B" || p.flagClosed;
+    const area = p.area;                            // live slider in round 6
+    const on = new Set(p.chosen || []);
+    const reach = closed ? 0 : (area != null ? area / 100 : r / 4);
+    const sciOk = (needs.science ?? 2) >= 3;
+    const siteOk = (needs.site ?? 2) >= 3;
     return `
       <rect width="800" height="500" fill="#bcd8e6"/>
-      ${sun(706, 72)}${cloud(190, 72, 0.9)}${bird(120, 126)}
-      <circle cx="330" cy="300" r="${closed ? 300 : 150}" fill="${closed ? "#a6cfd8" : "#9ec8dc"}"
-        stroke="${closed ? C.teal : C.ink}" stroke-width="5" stroke-dasharray="18 14"/>
-      ${atoll(330, 300, 1)}
-      ${TXT(330, 384, closed ? "CLOSED — WHOLE ZONE" : "50 NAUTICAL MILES", 17, C.ink)}
-      ${blocks
-        ? `${[0, 1, 2, 3].map((i) => `<rect x="${540 + (i % 2) * 110}" y="${150 + Math.floor(i / 2) * 110}" width="94" height="94"
-             fill="none" stroke="${i === 0 ? C.teal : "#7ba7c4"}" stroke-width="5" stroke-dasharray="${i === 0 ? "" : "12 10"}"/>`).join("")}
-           ${TXT(650, 400, "BLOCK BY BLOCK", 18, C.ink)}`
-        : closed
-        ? TXT(650, 220, "no licences", 22, C.teal)
-        : `${ship(600, 300, 0.9, C.blue)}${ship(720, 320, 0.75, C.red)}
-           ${TXT(660, 420, "THE OTHER 84%", 19, C.ink)}`}
-      ${fig(330, 266, 0.9, closed ? "shrug" : "point")}`;
+      ${sun(706, 72)}${cloud(190, 72, 0.9)}${cloud(430, 58, 0.75)}${bird(120, 126)}
+
+      <!-- surface -->
+      <path d="M0 300h800v200H0z" fill="${C.blue}" stroke="${C.ink}" stroke-width="5"/>
+      ${P("M0 330c120 20 220-16 340 4s260 24 460-8", "#6fa8cf", 6, "none").replace("<path ", '<path class="anim-drift" ')}
+      ${atoll(120, 300, 0.95)}
+      <circle cx="120" cy="300" r="${closed ? 320 : 118}" fill="none"
+        stroke="${closed ? C.teal : "#eaf4fb"}" stroke-width="5" stroke-dasharray="18 14" opacity=".85"/>
+
+      <!-- the floor: the same seam, four kilometres lower -->
+      <path d="M0 418h800v82H0z" fill="#3b3326" stroke="${C.ink}" stroke-width="5"/>
+      ${nodules(410, 18, 6)}
+
+      ${reach > 0 ? `
+        ${ship(400 + 0, 300, 0.9, C.blue, "anim-bob")}
+        ${P(`M400 318V${392}`, "#9fd8cf", 4)}
+        ${collector(400, 400, 0.9)}
+        <g class="anim-drift">${plumeCloud(250, 372, 0.8 + reach, reach > 0.6)}</g>
+        ${reach > 0.5 ? ship(640, 300, 0.75, C.red, "anim-bob") : ""}` : `
+        ${ship(400, 300, 0.85, C.teal, "anim-bob")}${P("M400 318v70", "#9fd8cf", 3)}${CIRC(400, 396, 10, "#fff", C.ink, 4)}`}
+
+      ${on.has("observers") ? `${fig(470, 300, 0.7, "point", C.teal)}` : ""}
+      ${on.has("seabaseline") || sciOk ? `${P("M690 418v-48", C.teal, 4)}${CIRC(690, 362, 9, "#fff", C.teal, 4)}` : ""}
+      ${siteOk ? `${fish(200, 360, 0.9)}${fish(560, 350, 0.8, C.rose)}${fish(300, 392, 0.7, C.yellow)}` : `${fish(620, 346, 0.7, C.rose)}`}
+
+      <!-- a plank under each of the six, so the line-up stands on a jetty
+           rather than on the water -->
+      ${SX.map((x) => `<g>${P(`M${x - 28} 300h56`, C.ink, 6)}${P(`M${x - 20} 300v14M${x + 20} 300v14`, C.ink, 4)}</g>`).join("")}
+      ${stakeLine(needs, 296, SX, SC)}
+      ${area != null ? tag(400, 150, `${area}% OF THE OPEN ZONE`, C.ink, 300) : ""}`;
   },
 
-  /* 7. The abyss — five thousand metres down, and a date. */
-  abyss: (v) => `
-    <rect width="800" height="500" fill="${C.deep}"/>
-    ${P("M0 108c120 28 220-18 340 6s260 32 460-10", "#2d5a85", 6)}
-    ${fish(96, 112, 0.9)}${fish(660, 86, 0.8, C.rose)}
-    <path d="M0 392h800v108H0z" fill="#3b3326" stroke="${C.ink}" stroke-width="5"/>
-    ${nodules(384, 20, 6)}
-    ${v === "C"
-      ? `${ship(640, 150, 0.85, C.grey, "")}${P("M600 150l-44-16", C.grey, 4)}${TXT(400, 250, "SURVEY ENDED", 26, "#cfe8ec")}`
-      : v === "B"
-      ? `${ship(400, 140, 0.9, C.teal, "")}${P("M400 162v190", "#9fd8cf", 3)}${CIRC(400, 360, 13, "#fff", C.ink, 4)}
-         ${TXT(400, 250, "DECIDE NOW", 26, "#cfe8ec")}`
-      : `${ship(400, 142, 0.9, C.blue, "")}${P("M400 164v186", "#9fd8cf", 3)}${CIRC(400, 358, 12, "#fff", C.ink, 4)}
-         <rect x="306" y="206" width="188" height="62" rx="6" fill="#fff" stroke="${C.ink}" stroke-width="5"/>${TXT(400, 250, v === "A" ? "2032" : "SURVEYING", 28)}`}
-    ${TXT(400, 466, "nodules grow millimetres per million years", 18, "#8fb6cc")}`,
-
-  /* 8. Whose flag — three doors, each held open by somebody. */
-  flags: (v) => {
-    const pole = (x, col, label) => `<g>${P(`M${x} 330V170`, C.ink, 5)}
-      <path d="M${x} 172h86v46h-86z" fill="${col}" stroke="${C.ink}" stroke-width="5"/>${TXT(x + 43, 150, label, 15)}</g>`;
-    return `
-      <rect width="800" height="500" fill="#bcd8e6"/>
-      ${sun(708, 74)}${cloud(200, 84, 0.9)}
-      <path d="M0 330h800v170H0z" fill="${C.blue}" stroke="${C.ink}" stroke-width="5"/>
-      ${atoll(400, 330, 1.25)}
-      ${v === "A" ? `${pole(150, C.red, "RESEARCH")}${pole(560, C.yellow, "CAPITAL")}${pole(680, C.teal, "PASSPORTS")}` : ""}
-      ${v === "B" ? `${pole(560, C.teal, "ONE PARTNER")}
-        <g><rect x="120" y="214" width="150" height="96" rx="8" fill="${C.yellow}" stroke="${C.ink}" stroke-width="5"/>
-        ${P("M120 254h150", C.ink, 4)}${TXT(195, 292, "FUND", 22)}${TXT(195, 196, "AUDITED", 15, C.teal)}</g>` : ""}
-      ${v === "C" ? TXT(400, 200, "NO AGREEMENTS", 26) : ""}
-      ${fig(400, 296, 1.1, v === "B" ? "stand" : v === "C" ? "shrug" : "point")}
-      ${fish(90, 440, 0.8)}${fish(700, 420, 0.7, C.rose)}`;
-  },
-
-  /* 9. The number nobody wants — a cobalt forecast, falling. */
-  ledger: (v) => `
-    <rect width="800" height="500" fill="#f1efe4"/>
-    <g>
-      ${P("M120 390h560", C.ink, 5)}${P("M120 390V120", C.ink, 5)}
-      ${P("M140 170q140 24 260 108t260 96", C.red, 7)}
-      ${CIRC(660, 374, 9, C.red, C.ink, 4)}
-      ${TXT(300, 150, "COBALT PER BATTERY", 19, "#8a8172")}
-      ${TXT(690, 410, "2030", 16, "#8a8172")}
-      ${TXT(150, 412, "2019", 16, "#8a8172")}
-      ${P("M470 300l-22 26 30 4", C.red, 4)}
-      ${TXT(560, 268, "÷3.6", 24, C.red)}
-    </g>
-    ${v === "A"
-      ? `<g>${doc(140, 440, "PUBLISHED")}${TXT(400, 466, "whatever it says", 20, C.teal)}</g>`
-      : v === "B"
-      ? `<g><rect x="96" y="414" width="150" height="64" rx="5" fill="#fff" stroke="${C.ink}" stroke-width="5"/>
-          ${P("M96 414l75 40 75-40", C.ink, 4)}${TXT(171, 500, "", 1)}${TXT(400, 466, "advice to government", 20, "#8a8172")}</g>`
-      : TXT(400, 466, "nobody checked", 20, "#8a8172")}`,
-
-  endGood: () => `
+  endGood: (v, p = {}) => `
     <rect width="800" height="500" fill="#eef3e6"/>
-    ${sun(690, 80)}${cloud(240, 108, 1)}${bird(140, 150)}
+    ${sun(690, 80)}${cloud(240, 108, 1)}${bird(140, 150)}${bird(210, 178, 0.8)}
     ${hill("M0 316c130-50 230-40 330 0s250 36 470-20V500H0z", C.sand)}
-    ${oak(260, 320, 0.95)}${flower(430, 332, 1.3)}${sage(620, 300, 1.1)}
-    ${fig(120, 326, 1.2, "cheer", C.teal, "anim-hop")}${fig(180, 332, 1.1, "stand")}
-    ${truck(640, 300, 0.7)}
-    <g>${P("M470 500V400c0-24 20-44 46-44h110c26 0 46 20 46 44v100z", C.ink, 5, "#2b2622")}
-       ${fish(520, 430, 0.7)}${nodules(466, 5, 1)}</g>`,
+    ${P("M0 352c120 16 190-12 300 2s250 22 500-6", C.blue, 7, "none").replace("<path ", '<path class="anim-drift" ')}
+    ${rasp(90, 330, 1.1)}${rasp(170, 338, 0.95)}${oak(300, 318, 0.85)}${atoll(640, 330, 0.9)}
+    ${stakeLine(p.needs, 440, SX, SC)}`,
 
-  endBad: () => `
-    <rect width="800" height="500" fill="#f0e4d8"/>
-    ${sun(690, 80, C.red)}
-    ${hill("M0 330h800v170H0z", C.dust)}
-    <path d="M120 330q260 170 520 0z" fill="#b5a489" stroke="${C.ink}" stroke-width="5"/>
-    ${puff(360, 300, 1.4, "#d8cdb5")}
-    ${fig(80, 330, 1.2, "sad")}${truck(700, 318, 0.75, C.grey)}`,
+  endMixed: (v, p = {}) => `
+    <rect width="800" height="500" fill="#f1efe4"/>
+    ${cloud(220, 96, 1.05)}${cloud(560, 72, 0.85)}${sun(700, 78)}
+    ${hill("M0 320c140-44 240-32 340 2s250 28 460-18V500H0z", "#ded8c4")}
+    ${P("M0 352c120 14 190-12 300 2s250 22 500-6", "#9db9cf", 6, "none").replace("<path ", '<path class="anim-drift" ')}
+    <path d="M330 322q150 90 320 0z" fill="#c9c2ae" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
+    ${rasp(100, 332, 1)}${atoll(690, 334, 0.8)}
+    ${stakeLine(p.needs, 452, SX, SC)}`,
 
-  endMixed: () => `
-    <rect width="800" height="500" fill="#f1ecdd"/>
-    ${sun(690, 84)}${cloud(260, 104, 0.9)}
-    ${hill("M0 324c130-40 230-30 330 4s250 26 470-16V500H0z", C.sand)}
-    ${oak(250, 326, 0.85)}${flower(420, 338, 1.1, false)}
-    <path d="M520 326q90 60 190 0z" fill="${C.dust}" stroke="${C.ink}" stroke-width="5"/>
-    ${fig(120, 330, 1.15, "stand")}${fig(176, 336, 1.05, "sad")}
-    ${truck(660, 310, 0.7)}`,
+  endBad: (v, p = {}) => `
+    <rect width="800" height="500" fill="#efe6dc"/>
+    ${cloud(260, 86, 1.1)}${cloud(600, 66, 0.9)}${sun(86, 84, C.red)}
+    ${hill("M0 324h800v176H0z", "#d6cab2")}
+    <path d="M160 324q230 150 480 0z" fill="#b9a98c" stroke="${C.ink}" stroke-width="5" stroke-linejoin="round"/>
+    <g class="anim-puff">${puff(420, 290, 1.4)}</g>
+    ${P("M0 356c120 14 190-12 300 2s250 22 500-6", "#a9a08c", 6)}
+    ${stakeLine(p.needs, 456, SX, SC)}`,
 };
 
 function drawScene(key, variant = "base", params = {}) {

@@ -1,274 +1,193 @@
 /* NO CLEAN HANDS — engine.
-   Two live permits, ten rounds, one charter, and a loop.
 
-   Three things are being tracked at once. Breaking a principle you
-   adopted is the expensive one. Funding the six solutions is the slow
-   one — each matures on a delay. And the forecast is the cruel one: it
-   is revised down every round, partly by the market and partly by you,
-   while the mine you approved takes six years to build. Approve
-   something that lands under the line and you have bought a hole. */
+   One number. Social licence is spent by every decision and paid back,
+   each round, by whichever stakeholders' needs are currently met. Leave
+   someone starving and they drain it instead. At zero the project stops.
+
+   Four question shapes, used twice each, in the same order in both acts:
+   a permit (choice), how much/how fast (slider), what you require
+   (conditions), who gets paid (allocate). The mirroring is the argument.
+
+   No speech bubbles. The stakeholders are figures in the picture and
+   their state is the back-and-forth. */
 
 const G = {
-  ch: -1, b: 0, beats: [], phase: "title",
-  s: Object.assign({}, START),
-  charter: [],            // the two principle ids the council adopted
-  breaches: [],           // { round, place, principle, label }
-  flags: new Set(), record: [],
+  act: -1, b: 0, beats: [], phase: "title",
+  licence: START_LICENCE,
+  needs: {},              // stakeholder id -> 0..4, starts at 2
+  flags: new Set(),
+  round: 0,               // total decisions taken, drives the art over time
+  actRound: 0,            // decisions taken inside the current act
+  log: [],                // { place, label, cost, delta }
+  p: {},                  // live input for the beat on screen
+  artKey: "title", artVar: "base",
   secs: 120, left: 0, tick: null,
-  p: {}, artKey: "title", artVar: "base",
-  pending: null,          // an emergency decision queued by a floor event
-  inFloor: false,         // true while an emergency round and its outcome are on screen
-  floored: [],            // meters that have already bottomed out
-  floorsThisCase: 0,      // capped at one per case
-  charterVoid: false,
-
-  /* the loop, from RMI's six solutions */
-  loop: {},          // solution id -> rounds left until it matures (0 = landed)
-  loopFunded: [],    // every solution funded at least once, for the ending
-  matured: [],       // solutions that have shown up in the forecast
-  /* the forecast the room watches */
-  demand: 100,       // projected net demand at first ore, indexed to the mine plan
-  demandLog: [100],  // the curve
-  lastRevision: 0,   // this round's revision, for the arrow
-  oreLeft: null,     // years to first ore in the active case
-  oreLabel: null,
+  lastIncome: 0, lastDrain: 0,
+  built: 0,               // acts in which something was actually approved
 };
 
-/* How much the forecast falls each round with no help from you: the
-   chemistry and density improvements the market makes anyway. */
-const DRIFT = 3;
-
 const $ = (q) => document.querySelector(q);
+const $$ = (q) => [...document.querySelectorAll(q)];
 const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-const cl = (n) => Math.max(0, Math.min(100, n));
-const addD = (a, b) => { Object.entries(b || {}).forEach(([k, v]) => (a[k] = (a[k] || 0) + v)); return a; };
+const clampNeed = (n) => Math.max(0, Math.min(4, n));
+const side = () => (ACTS[Math.max(0, G.act)] || ACTS[0]).side;
+const nameOf = (s) => s[side()] || s.label;
+const wantOf = (s) => s[side() === "sea" ? "seaWant" : "landWant"];
 const setFlags = (f) => { if (f) String(f).split(",").forEach((x) => x.trim() && G.flags.add(x.trim())); };
-const principle = (id) => PRINCIPLES.find((p) => p.id === id);
-const adopted = (ids) => G.charterVoid ? [] : (ids || []).filter((x) => G.charter.includes(x));
-
-/* a beat appears if ANY of its required flags is set */
 const passes = (b) => !b.requires || String(b.requires).split(",").some((f) => G.flags.has(f.trim()));
+const metCount = () => STAKEHOLDERS.filter((s) => G.needs[s.id] >= MET).length;
+const starvedList = () => STAKEHOLDERS.filter((s) => G.needs[s.id] <= 0).map((s) => s.id);
 
-/* The council has committed capital to a hole that is not finished yet.
-   The two deposits are NOT equally exposed, and pretending otherwise
-   would be the one unforgivable simplification in this game. RMI finds
-   announced projects already cover projected peak demand for cobalt and
-   nickel with no gap at all; only lithium shows one, around 23%, and
-   only in the fastest-uptake case. So a cobalt nodule project goes under
-   water far earlier than a lithium project does. */
-const SEABED = ["cook_open"];
-const LAND = ["jadar_fast", "jadar_public", "jadar_refine"];
-const committed = () => [...SEABED, ...LAND].some((f) => G.flags.has(f));
-const underwater = () =>
-  (SEABED.some((f) => G.flags.has(f)) && G.demand < 78) ||
-  (LAND.some((f) => G.flags.has(f)) && G.demand < 56);
+STAKEHOLDERS.forEach((s) => (G.needs[s.id] = 2));
 
-function creditLoop(id) {
-  const s = LOOP.find((x) => x.id === id);
-  if (!s) return;
-  if (!G.loopFunded.includes(id)) G.loopFunded.push(id);
-  // funding the same solution twice shortens the wait; it does not stack a second cut
-  G.loop[id] = G.loop[id] === undefined ? s.lead : Math.min(G.loop[id], 1);
-}
-
-/* one round of clock: solutions mature, the forecast is revised, the
-   shaft gets a year closer to ore it may not need */
-function tickRound() {
-  const landed = [];
-  Object.keys(G.loop).forEach((id) => {
-    if (G.loop[id] > 0 && --G.loop[id] === 0) landed.push(id);
-  });
-  let cut = 0;
-  landed.forEach((id) => {
-    if (!G.matured.includes(id)) { G.matured.push(id); cut += LOOP.find((x) => x.id === id).cut; }
-  });
-  G.lastRevision = DRIFT + cut;
-  G.demand = Math.max(8, G.demand - G.lastRevision);
-  G.demandLog.push(G.demand);
-  if (G.oreLeft !== null && G.oreLeft > 0) G.oreLeft -= 1;
-  return landed;
-}
-
-function avatar(seed) {
-  const f = [...String(seed)].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const brow = f % 3, mouth = (f >> 2) % 3;
-  return `<svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="#231f20" stroke-width="3" fill="none" stroke-linecap="round">
-    <circle cx="20" cy="20" r="14"/><circle cx="15" cy="17" r="1.6" fill="#231f20"/><circle cx="25" cy="17" r="1.6" fill="#231f20"/>
-    ${brow === 0 ? '<path d="M11 11l6 2M29 11l-6 2"/>' : brow === 1 ? '<path d="M11 13h6M23 13h6"/>' : '<path d="M11 13l6-2M29 13l-6-2"/>'}
-    ${mouth === 0 ? '<path d="M14 26q6 5 12 0"/>' : mouth === 1 ? '<path d="M14 27h12"/>' : '<path d="M14 28q6-5 12 0"/>'}
-  </g></svg>`;
-}
-
-/* -------------------------------------------------------------- shell */
+/* ------------------------------------------------------------- shell */
 function shell(panel, extra = "") {
   document.body.innerHTML = `${bar()}
     <main class="stage${G.phase === "debrief" ? " solo" : ""}">
-      <section class="art"><div class="plate" id="art">
-        <div class="layer" id="artlayer">${drawScene(G.artKey, G.artVar, G.p)}</div>${extra}
-      </div>${hud()}</section>
+      <section class="art">
+        <div class="plate" id="art"><div class="layer" id="artlayer">${scene()}</div>${extra}</div>
+        ${G.phase === "title" || G.phase === "debrief" ? "" : stakeRow()}
+      </section>
       <section class="panel ${G.phase === "outcome" ? "mid" : ""}">${panel}</section>
     </main>`;
 }
-const paintArt = () => { const l = $("#artlayer"); if (l) l.innerHTML = drawScene(G.artKey, G.artVar, G.p); };
 
-/* ---------------------------------------------------------------- hud */
-/* The instruments live inside the picture: a forecast that keeps being
-   revised, a countdown to ore, and six arcs that fill as the loop
-   closes. Everything anxious about this game is in this one box. */
-function hud() {
-  if (["title", "end", "debrief"].includes(G.phase)) return "";
-  const W = 120, H = 32, n = G.demandLog.length;
-  const pts = G.demandLog
-    .map((v, i) => `${((i / Math.max(1, n - 1)) * W).toFixed(1)},${(H - (v / 100) * H).toFixed(1)}`)
-    .join(" ");
-  const ore = G.oreLeft !== null;
-  return `<div class="hud ${underwater() ? "danger" : ""}">
-    <div class="hudtop">
-      <svg class="spark" viewBox="-2 -2 ${W + 4} ${H + 4}" aria-hidden="true">
-        <line class="plan" x1="0" y1="${(H * 0.4).toFixed(1)}" x2="${W}" y2="${(H * 0.4).toFixed(1)}"/>
-        <polyline points="${pts}"/>
-        <circle cx="${((n - 1) / Math.max(1, n - 1) * W).toFixed(1)}" cy="${(H - (G.demand / 100) * H).toFixed(1)}" r="2.6"/>
-      </svg>
-      <div class="hudnum">
-        <b>${G.demand}</b>
-        ${G.lastRevision ? `<em>&minus;${G.lastRevision}</em>` : ""}
-        <i>net demand at ${esc(G.oreLabel || "first ore")}</i>
-      </div>
-    </div>
-    ${ore ? `<div class="hudore ${G.oreLeft <= 2 ? "near" : ""}">${G.oreLeft} ${G.oreLeft === 1 ? "year" : "years"} to ${esc(G.oreLabel || "first ore")}</div>` : ""}
-    <div class="ring" title="The loop: six solutions, funded and matured">
-      ${LOOP.map((s) => `<span class="seg ${G.matured.includes(s.id) ? "on" : G.loop[s.id] !== undefined ? "pending" : ""}"
-        title="${esc(s.label)} — ${G.matured.includes(s.id) ? "landed" : G.loop[s.id] !== undefined ? `matures in ${G.loop[s.id]}` : "not funded"}">${esc(s.letter)}</span>`).join("")}
-    </div>
-    ${underwater() ? `<div class="hudwarn">lands below plan</div>` : ""}
-  </div>`;
-}
+const scene = () => drawScene(G.artKey, G.artVar, Object.assign({
+  needs: G.needs, round: G.round, actRound: G.actRound, side: side(), licence: G.licence,
+}, G.p));
 
+const paintArt = () => { const l = $("#artlayer"); if (l) l.innerHTML = scene(); };
+
+/* ---------------------------------------------------------- the bar */
+/* One number, large, because it is the only one. */
 function bar() {
   if (G.phase === "title") {
     return `<header class="top"><span class="mark">No Clean <em>Hands</em></span><span class="grow"></span>
       <span class="tiny"><kbd>space</kbd> start</span></header>`;
   }
-  const c = CHAPTERS[Math.max(0, G.ch)];
+  const a = ACTS[Math.max(0, G.act)];
   const done = G.phase === "end" || G.phase === "debrief";
-  const label = done ? "Verdict"
-    : G.inFloor ? "Emergency"
-    : c.id === "charter" ? "Charter"
-    : `${c.title.split(":")[0]} · ${G.b + 1}/${G.beats.length}`;
+  const label = done ? "Verdict" : `${a.title.split(":")[0]} · ${Math.min(G.b + 1, G.beats.length)}/${G.beats.length}`;
+  const pct = Math.max(0, Math.min(100, G.licence));
+  const low = G.licence <= 20;
   return `<header class="top">
     <span class="mark">No Clean <em>Hands</em></span>
     <span class="step">${esc(label)}</span>
-    ${G.charter.length ? `<span class="charter">${G.charter.map((id) => {
-      const p = principle(id);
-      const broke = G.breaches.some((x) => x.principle === id);
-      return `<span class="pr-chip ${G.charterVoid ? "void" : broke ? "broke" : ""}" title="${esc(p.rule)}">${esc(p.label)}${broke ? " ✕" : ""}</span>`;
-    }).join("")}</span>` : ""}
     <span class="grow"></span>
-    <div class="gauges">${METERS.map((m) => `
-      <div class="gauge ${G.s[m.key] < 34 ? "low" : ""}" data-k="${m.key}" title="${esc(m.full)}">
-        <div class="lb">${esc(m.label)}<b>${G.s[m.key]}</b></div>
-        <div class="bar"><div class="fill" style="width:${G.s[m.key]}%"></div></div>
-      </div>`).join("")}</div>
+    <div class="lic ${low ? "low" : ""}" title="Social licence. Spent by every decision, paid back by stakeholders whose needs are met.">
+      <div class="lic-lb">Social licence<b>${G.licence}</b></div>
+      <div class="lic-bar"><div class="lic-fill" style="width:${pct}%"></div></div>
+    </div>
   </header>`;
 }
 
-const bump = (d) => Object.keys(d).forEach((k) => {
-  const g = document.querySelector(`.gauge[data-k="${k}"]`);
-  if (g) { g.classList.add("pop"); setTimeout(() => g.classList.remove("pop"), 520); }
-});
+/* The six interests, under the picture, as the thing you are actually
+   playing. Their names change with the deposit; their wants do not. */
+function stakeRow() {
+  return `<div class="stakes">${STAKEHOLDERS.map((s) => {
+    const n = G.needs[s.id];
+    const st = n <= 0 ? "starved" : n >= MET ? "met" : "thin";
+    return `<div class="stake ${st}" data-s="${s.id}" title="${esc(nameOf(s))} — ${esc(wantOf(s))}">
+      <span class="sk-ico">${ICON[s.icon]}</span>
+      <span class="sk-name">${esc(nameOf(s))}</span>
+      <span class="sk-pips">${[1, 2, 3, 4].map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>
+    </div>`;
+  }).join("")}</div>`;
+}
 
-/* -------------------------------------------------------------- title */
+const ICON = {
+  home: `<svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M6 10v9h12v-9"/></svg>`,
+  helmet: `<svg viewBox="0 0 24 24"><path d="M3 16a9 9 0 0 1 18 0zM3 16h18M9 7.5V5a3 3 0 0 1 6 0v2.5"/></svg>`,
+  coin: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10h5M9.5 14h5"/></svg>`,
+  flag: `<svg viewBox="0 0 24 24"><path d="M6 21V4M6 5h11l-2 3.5L17 12H6"/></svg>`,
+  flask: `<svg viewBox="0 0 24 24"><path d="M10 3h4M11 3v7l-5 9h12l-5-9V3M8 15h8"/></svg>`,
+  car: `<svg viewBox="0 0 24 24"><path d="M4 16v-4l2-5h12l2 5v4M4 16h16M7 16v2M17 16v2M7 12h2M15 12h2"/></svg>`,
+};
+
+/* ------------------------------------------------------------- title */
 function title() {
   G.phase = "title"; G.artKey = "title"; G.artVar = "base"; G.p = {};
   document.body.dataset.realm = "land";
-  shell(`<div class="titlewrap">
+  shell(`<div class="scroll">
       <h1 class="bigtitle">No Clean<br><em>Hands</em></h1>
       <p class="subtitle">${esc(PROLOGUE.sub)}</p>
       ${PROLOGUE.lines.map((l) => `<p class="situation">${l}</p>`).join("")}
-      <div class="row"><button class="btn" id="go">Convene</button>
+      <div class="row"><button class="btn" id="go">Begin</button>
         <label class="tiny">talk time <select id="tsel" class="sel">
           <option value="90">90s</option><option value="120" selected>2 min</option>
           <option value="180">3 min</option><option value="0">none</option></select></label></div>
       <p class="tiny">${esc(PROLOGUE.note)}</p>
     </div>`);
   $("#tsel").onchange = (e) => (G.secs = +e.target.value);
-  $("#go").onclick = () => { G.ch = 0; chapter(); };
+  $("#go").onclick = () => { G.act = 0; act(); };
 }
 
-/* ------------------------------------------------------------ chapter */
-function chapter() {
-  const c = CHAPTERS[G.ch];
-  if (!c) return ending();
-  G.phase = "intro"; G.b = 0; G.floorsThisCase = 0;
-  G.beats = c.beats.filter(passes);
-  G.artKey = c.art; G.artVar = "base"; G.p = {};
-  if (c.ore) { G.oreLeft = c.ore.years; G.oreLabel = c.ore.label; }
-  document.body.dataset.realm = c.realm;
+/* --------------------------------------------------------------- act */
+function act() {
+  const a = ACTS[G.act];
+  if (!a) return ending();
+  G.phase = "intro"; G.b = 0; G.actRound = 0;
+  G.beats = a.beats.filter(passes);
+  G.artKey = a.art; G.artVar = "base"; G.p = {};
+  document.body.dataset.realm = a.realm;
   shell(`<div class="scroll">
-      <div class="where"><h2>${esc(c.title)}</h2><span class="yr">${esc(c.sub)}</span></div>
-      <p class="situation">${esc(c.intro)}</p>
-      ${c.cast.length ? `<div class="castrow">${c.cast.map((p) => `
-        <span class="castchip"><span class="av">${avatar(p.who)}</span><b>${esc(p.who)}</b><i>${esc(p.role)}</i></span>`).join("")}</div>` : ""}
-      ${G.charter.length ? `<div class="charterblock"><h4>Your charter</h4>${G.charter.map((id) => {
-        const p = principle(id);
-        return `<div class="pr-line"><b>${esc(p.label)}.</b> ${esc(p.short)}</div>`;
-      }).join("")}</div>` : ""}
+      <div class="where"><h2>${esc(a.title)}</h2><span class="yr">${esc(a.sub)}</span></div>
+      <p class="situation">${esc(a.intro)}</p>
+      <div class="wants">${STAKEHOLDERS.map((s) => `
+        <div class="want"><span class="wk">${ICON[s.icon]}${esc(nameOf(s))}</span><span class="wv">${esc(wantOf(s))}</span></div>`).join("")}</div>
     </div>
-    <div class="controls"><button class="btn" id="go">${c.id === "charter" ? "Write it" : "Open the case"} &rarr;</button></div>`);
+    <div class="controls"><button class="btn" id="go">Open the file &rarr;</button></div>`);
   $("#go").onclick = () => beat();
 }
 
-/* --------------------------------------------------------------- beat */
-function beat(forced) {
-  const b = forced || G.beats[G.b];
-  if (!b) { G.ch++; return chapter(); }
-  G.inFloor = !!(forced && forced.isFloor);
+/* -------------------------------------------------------------- beat */
+function beat() {
+  const b = G.beats[G.b];
+  if (!b) { G.act++; return act(); }
   G.phase = "beat";
-  G.artKey = b.art || CHAPTERS[G.ch].art; G.artVar = "base";
+  G.artKey = b.art || ACTS[G.act].art; G.artVar = "base";
   G.p = b.type === "slider" ? { [b.slider.key]: b.slider.start }
-      : b.type === "spend" || b.type === "charter" ? { chosen: [] } : {};
+      : b.type === "conditions" ? { chosen: [] }
+      : b.type === "allocate" ? { give: {}, left: b.pool }
+      : {};
 
   shell(`<div class="scroll">
-      ${b.isFloor ? `<div class="floorflag">${esc(METERS.find((m) => m.key === b.meter).label)} hit zero &middot; unscheduled decision</div>` : ""}
       <div class="where"><h2>${esc(b.place)}</h2><span class="yr">${esc(b.year)}</span></div>
+      <div class="shape">${esc(b.shape)}</div>
       <p class="situation">${esc(b.situation)}</p>
-      ${(b.voices || []).map((v) => `<div class="voice"><span class="av">${avatar(v.who)}</span>
-        <span class="said"><b>${esc(v.who)} &middot; ${esc(v.role)}</b>${esc(v.line)}</span></div>`).join("")}
     </div>
     <div class="askline">${esc(b.ask)}</div>
     <div class="controls" id="controls">${controls(b)}</div>
     <div class="row"><button class="btn alt mini" id="talk">Talk it over</button>
-      <button class="btn alt mini" id="more">More detail</button>
-      <span class="grow"></span>${b.type === "choice" ? "" : `<button class="btn" id="commit" ${b.type === "charter" ? "disabled" : ""}>Commit</button>`}</div>`);
+      <button class="btn alt mini" id="more">What else is true</button>
+      <span class="grow"></span>
+      ${b.type === "choice" ? "" : `<button class="btn" id="commit">Commit</button>`}</div>`);
   wire(b);
 }
 
-/* ----------------------------------------------------------- controls */
-const tagsFor = (o) => {
-  const up = adopted(o.up), vio = adopted(o.vio);
-  return [...vio.map((p) => `<span class="tg bad">breaks ${esc(principle(p).label)}</span>`),
-          ...up.map((p) => `<span class="tg good">keeps ${esc(principle(p).label)}</span>`)].join("");
-};
+/* --------------------------------------------------------- controls */
+/* Every option shows what it costs and who it feeds, because the whole
+   game is that those two facts never line up. */
+const needTags = (need) => STAKEHOLDERS.filter((s) => need && need[s.id])
+  .map((s) => `<span class="nt ${need[s.id] > 0 ? "up" : "down"}">${esc(nameOf(s))} ${need[s.id] > 0 ? "+" : ""}${need[s.id]}</span>`).join("");
+
+const priceTag = (c) => `<span class="cost ${c > G.licence ? "over" : ""}">&minus;${c}</span>`;
 
 function controls(b) {
-  if (b.type === "charter") {
-    return `<div class="cards">${PRINCIPLES.map((p, i) => `
-      <button class="card" data-id="${p.id}" data-i="${i}" aria-pressed="false">
-        <span class="cx"><b>${esc(p.label)}</b><i>${esc(p.rule)}</i></span>
-        <span class="tick">${i + 1}</span></button>`).join("")}</div>`;
-  }
   if (b.type === "choice") {
     return b.choices.map((c, i) => `
-      <button class="pick" data-i="${i}">
+      <button class="pick" data-i="${i}" ${c.cost > G.licence ? "disabled" : ""}>
         <span class="key">${i + 1}</span>
-        <span class="tx"><b>${esc(c.label)}</b><i>${esc(c.sub)}</i>${tagsFor(c) ? `<span class="tags">${tagsFor(c)}</span>` : ""}</span>
+        <span class="tx"><b>${esc(c.label)}</b><i>${esc(c.sub)}</i><span class="tags">${needTags(c.need)}</span></span>
+        ${priceTag(c.cost)}
       </button>`).join("");
   }
-  if (b.type === "spend") {
+  if (b.type === "conditions") {
     return `<div class="cards">${b.options.map((o, i) => `
       <button class="card" data-id="${o.id}" data-i="${i}" aria-pressed="false">
-        <span class="cx"><b>${esc(o.label)}</b><i>${esc(o.note)}</i>${tagsFor(o) ? `<span class="tags">${tagsFor(o)}</span>` : ""}</span>
-        <span class="tick">${i + 1}</span></button>`).join("")}</div>`;
+        <span class="cx"><b>${esc(o.label)}</b><i>${esc(o.note)}</i><span class="tags">${needTags(o.need)}</span></span>
+        ${priceTag(o.cost)}</button>`).join("")}</div>
+      <div class="bandnote" id="bandnote"></div>`;
   }
   if (b.type === "slider") {
     const v = G.p[b.slider.key];
@@ -278,72 +197,61 @@ function controls(b) {
       <div class="bandnote" id="bandnote"></div>
     </div>`;
   }
+  if (b.type === "allocate") {
+    return `<div class="alloc">${STAKEHOLDERS.map((s) => `
+      <div class="al" data-s="${s.id}">
+        <span class="al-ico">${ICON[s.icon]}</span>
+        <span class="al-n"><b>${esc(nameOf(s))}</b><i>${esc(wantOf(s))}</i></span>
+        <span class="al-c">
+          <button class="stp" data-d="-1" aria-label="less">&minus;</button>
+          <b class="al-v" data-v="${s.id}">0</b>
+          <button class="stp" data-d="1" aria-label="more">+</button>
+        </span>
+      </div>`).join("")}</div>
+      <div class="bandnote" id="bandnote"></div>`;
+  }
   return "";
 }
 
 const bandFor = (b, v) => b.bands.find((x) => v <= x.max) || b.bands[b.bands.length - 1];
 
+/* ------------------------------------------------------------- wire */
 function wire(b) {
   $("#talk").onclick = () => sheet("talk", b);
   $("#more").onclick = () => sheet("detail", b);
 
-  if (b.type === "charter") {
-    document.querySelectorAll(".card").forEach((el) => (el.onclick = () => {
-      const id = el.dataset.id;
-      if (G.p.chosen.includes(id)) G.p.chosen = G.p.chosen.filter((x) => x !== id);
-      else if (G.p.chosen.length < b.pickCount) G.p.chosen = [...G.p.chosen, id];
-      else return;
-      document.querySelectorAll(".card").forEach((c) =>
-        c.setAttribute("aria-pressed", G.p.chosen.includes(c.dataset.id) ? "true" : "false"));
-      $("#commit").disabled = G.p.chosen.length !== b.pickCount;
-    }));
-    $("#commit").onclick = () => {
-      G.charter = G.p.chosen.slice();
-      const kept = PRINCIPLES.filter((p) => G.charter.includes(p.id));
-      const left = PRINCIPLES.filter((p) => !G.charter.includes(p.id));
-      land(b, "base", "The charter stands",
-        `You adopt ${kept.map((p) => p.label).join(" and ")}. ` +
-        `${left.map((p) => p.label).join(" and ")} remain true for other people and cost you nothing to ignore. ` +
-        `From here, breaking your own rule is the expensive move.`,
-        {}, kept.map((p) => p.label).join(" + "), [], []);
-    };
-    return;
-  }
-
   if (b.type === "choice") {
-    document.querySelectorAll(".pick").forEach((el) => (el.onclick = () => {
+    $$(".pick").forEach((el) => (el.onclick = () => {
       const c = b.choices[+el.dataset.i];
       setFlags(c.flag);
-      if (c.flag === "charter_void") G.charterVoid = true;
-      if (c.flag === "charter_rebought") { G.charter = G.charter.slice(0, 1); G.charterVoid = false; }
-      land(b, c.key, c.out.t, c.out.x, Object.assign({}, c.d), c.label, c.vio, c.up);
+      land(b, c.key, c.out.t, c.out.x, c.cost, c.need, c.label);
     }));
     return;
   }
 
-  if (b.type === "spend") {
-    document.querySelectorAll(".card").forEach((el) => (el.onclick = () => {
+  if (b.type === "conditions") {
+    const note = () => {
+      const spend = b.options.filter((o) => G.p.chosen.includes(o.id)).reduce((t, o) => t + o.cost, 0);
+      $("#bandnote").innerHTML = `Spending <b>${spend}</b> of <b>${G.licence}</b>${
+        spend > G.licence ? ` &middot; <span class="warnline">more than you have</span>` : ""}`;
+      $("#commit").disabled = spend > G.licence;
+    };
+    $$(".card").forEach((el) => (el.onclick = () => {
       const id = el.dataset.id;
-      if (G.p.chosen.includes(id)) G.p.chosen = G.p.chosen.filter((x) => x !== id);
-      else G.p.chosen = [...G.p.chosen, id];
-      document.querySelectorAll(".card").forEach((c) =>
-        c.setAttribute("aria-pressed", G.p.chosen.includes(c.dataset.id) ? "true" : "false"));
-      paintArt();
+      G.p.chosen = G.p.chosen.includes(id) ? G.p.chosen.filter((x) => x !== id) : [...G.p.chosen, id];
+      $$(".card").forEach((c) => c.setAttribute("aria-pressed", G.p.chosen.includes(c.dataset.id) ? "true" : "false"));
+      note(); paintArt();
     }));
+    note();
     $("#commit").onclick = () => {
       const picked = b.options.filter((o) => G.p.chosen.includes(o.id));
-      const missed = b.options.filter((o) => !G.p.chosen.includes(o.id) && o.no);
-      const d = {}, vio = [], up = [];
-      picked.forEach((o) => {
-        addD(d, o.d); setFlags(o.flag);
-        if (o.loop) creditLoop(o.loop);
-        (o.vio || []).forEach((x) => vio.push(x)); (o.up || []).forEach((x) => up.push(x));
-      });
+      const missed = b.options.filter((o) => !G.p.chosen.includes(o.id));
+      const need = {}; let cost = 0;
+      picked.forEach((o) => { cost += o.cost; Object.entries(o.need).forEach(([k, v]) => (need[k] = (need[k] || 0) + v)); });
       G.p.locked = true;
-      land(b, "base", picked.length ? "What you attached" : "You attached nothing",
-        [...picked.map((o) => o.yes), ...missed.map((o) => o.no)].filter(Boolean).join(" ") ||
-          "Nothing is attached and the default proceeds, which is what defaults are for.",
-        d, picked.map((o) => o.label).join(" + ") || "nothing", vio, up);
+      land(b, "base", picked.length ? "What you required" : "You required nothing",
+        [...picked.map((o) => o.yes), ...missed.slice(0, 2).map((o) => o.no)].join(" "),
+        cost, need, picked.map((o) => o.label).join(" + ") || "nothing");
     };
     return;
   }
@@ -352,45 +260,51 @@ function wire(b) {
     const sl = $("#sl");
     const note = () => {
       const band = bandFor(b, G.p[b.slider.key]);
-      const t = [...adopted(band.vio).map((p) => `breaks ${principle(p).label}`),
-                 ...adopted(band.up).map((p) => `keeps ${principle(p).label}`)];
-      $("#bandnote").innerHTML = `<b>${esc(band.t)}</b>${t.length ? ` &middot; <span class="${adopted(band.vio).length ? "warnline" : ""}">${esc(t.join(", "))}</span>` : ""}`;
+      $("#bandnote").innerHTML = `<b>${esc(band.t)}</b> &middot; costs <b>${band.cost}</b> &middot; ${needTags(band.need) || "no one moves"}`;
     };
     sl.oninput = () => { G.p[b.slider.key] = +sl.value; $("#slval").textContent = sl.value + b.slider.unit; note(); paintArt(); };
     note();
     $("#commit").onclick = () => {
       const band = bandFor(b, G.p[b.slider.key]);
       setFlags(band.flag);
-      land(b, "base", band.t, band.x, Object.assign({}, band.d), `${G.p[b.slider.key]}${b.slider.unit}`, band.vio, band.up);
+      land(b, "base", band.t, band.x, band.cost, band.need, `${G.p[b.slider.key]}${b.slider.unit}`);
+    };
+    return;
+  }
+
+  if (b.type === "allocate") {
+    const note = () => {
+      $("#bandnote").innerHTML = `<b>${G.p.left}</b> of ${b.pool} left to give &middot; each point is a point of licence`;
+      $$(".al-v").forEach((el) => (el.textContent = G.p.give[el.dataset.v] || 0));
+      $("#commit").disabled = false;
+    };
+    $$(".al .stp").forEach((btn) => (btn.onclick = () => {
+      const id = btn.closest(".al").dataset.s, d = +btn.dataset.d;
+      const cur = G.p.give[id] || 0;
+      if (d > 0 && (G.p.left <= 0 || G.p.left > b.pool)) return;
+      if (d > 0 && b.pool - G.p.left >= Math.min(b.pool, G.licence)) return;
+      if (d < 0 && cur <= 0) return;
+      G.p.give[id] = cur + d; G.p.left -= d;
+      note(); paintArt();
+    }));
+    note();
+    $("#commit").onclick = () => {
+      const spent = b.pool - G.p.left;
+      const need = {}; Object.entries(G.p.give).forEach(([k, v]) => v && (need[k] = v));
+      const named = STAKEHOLDERS.filter((s) => G.p.give[s.id]).map((s) => `${nameOf(s)} ${G.p.give[s.id]}`);
+      land(b, "base", spent ? "The split" : "You distributed nothing",
+        spent
+          ? `You moved ${spent} point${spent === 1 ? "" : "s"} of licence into ${named.length} of six interests. The ${6 - named.length} you did not fund are in the minutes as having been considered, which is the word used for this.`
+          : "Nothing is distributed. The revenue goes where revenue goes by default, which is to whoever wrote the contract.",
+        spent, need, named.join(", ") || "nothing");
     };
   }
 }
 
-/* ----------------------------------------------------------- forecast */
-/* What the round did to the number nobody in the room is watching. */
-function forecast(landed) {
-  if (!landed) return "";
-  const out = [];
-  if (G.lastRevision) {
-    out.push(`<div class="fc">Forecast revised <b>&minus;${G.lastRevision}</b> &middot;
-      net demand at ${esc(G.oreLabel || "first ore")} is now <b>${G.demand}</b>${
-      G.oreLeft !== null ? ` &middot; ${G.oreLeft} ${G.oreLeft === 1 ? "year" : "years"} left to build` : ""}</div>`);
-  }
-  landed.forEach((id) => {
-    const s = LOOP.find((x) => x.id === id);
-    out.push(`<div class="fcmature"><b>${esc(s.letter)} &middot; ${esc(s.label)}</b> ${esc(s.matured)}</div>`);
-  });
-  if (underwater()) {
-    out.push(`<div class="fcwarn">First ore now lands below the plan it was approved on.
-      Whatever the valley gave up, it gave up for a tonne nobody has ordered.</div>`);
-  }
-  return out.join("");
-}
-
-/* -------------------------------------------------------------- sheets */
+/* ------------------------------------------------------------ sheets */
 function sheet(kind, b) {
-  const art = $("#art");
-  art.querySelector(".sheet")?.remove();
+  const plate = $("#art");
+  plate.querySelector(".sheet")?.remove();
   const el = document.createElement("div");
   el.className = "sheet";
   el.innerHTML = kind === "talk"
@@ -400,7 +314,7 @@ function sheet(kind, b) {
        <button class="btn mini alt" id="close">Back</button></div>`
     : `<h3>What else is true</h3><ul class="deets">${b.detail.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
        <div class="row" style="margin-top:auto"><button class="btn mini alt" id="close">Back</button></div>`;
-  art.appendChild(el);
+  plate.appendChild(el);
   el.querySelector("#close").onclick = () => { stop(); el.remove(); };
   el.querySelector("#more1") && (el.querySelector("#more1").onclick = () => { G.left += 60; tickPaint(); });
   if (kind === "talk" && G.secs) run(G.secs);
@@ -410,76 +324,85 @@ function tickPaint() { const c = $("#clock"); if (c) { c.textContent = fmt(G.lef
 function run(s) { stop(); G.left = s; tickPaint(); G.tick = setInterval(() => { G.left--; tickPaint(); if (G.left <= -60) stop(); }, 1000); }
 function stop() { if (G.tick) { clearInterval(G.tick); G.tick = null; } }
 
-/* --------------------------------------------------------------- land */
-function land(b, variant, t, x, d, stampText, vioRaw, upRaw) {
+/* -------------------------------------------------------------- land */
+/* Spend, move the needs, then run the round: everyone whose need is met
+   pays you, everyone you left on zero takes from you. */
+function land(b, variant, t, x, cost, need, stampText) {
   stop();
-  const vio = adopted(vioRaw), up = adopted(upRaw);
-  // a principle you adopted and then broke is the expensive thing in this game
-  if (vio.length) d.trust = (d.trust || 0) - 12 * vio.length;
-  if (up.length) d.trust = (d.trust || 0) + 4 * up.length;
-  vio.forEach((p) => G.breaches.push({ place: b.place, principle: p, label: stampText }));
+  G.licence -= cost;
+  const before = Object.assign({}, G.needs);
+  Object.entries(need || {}).forEach(([k, v]) => (G.needs[k] = clampNeed(G.needs[k] + v)));
 
-  Object.keys(START).forEach((k) => { if (d[k]) G.s[k] = cl(G.s[k] + d[k]); });
-  const landed = b.isFloor ? [] : tickRound();
+  G.round += 1; G.actRound += 1;
+  const met = metCount(), starved = starvedList();
+  const clout = (id) => STAKEHOLDERS.find((s) => s.id === id).clout;
+  G.lastIncome = STAKEHOLDERS.filter((s) => G.needs[s.id] >= MET).reduce((n, s) => n + s.clout, 0);
+  G.lastDrain = starved.reduce((n, id) => n + clout(id) * STARVE_MULT, 0);
+  G.licence += G.lastIncome - G.lastDrain;
+  G.licence = Math.max(0, Math.min(100, G.licence));
 
-  // a meter hitting zero inserts an emergency decision rather than skipping one
-  if (!b.isFloor && G.floorsThisCase < 1) {
-    const hit = Object.keys(START).find((k) => G.s[k] === 0 && !G.floored.includes(k) && FLOORS[k]);
-    if (hit) {
-      G.floored.push(hit);
-      G.floorsThisCase += 1;
-      G.pending = Object.assign({ type: "choice", isFloor: true, meter: hit, art: CHAPTERS[G.ch].art }, FLOORS[hit]);
-    }
+  // "built" means this act produced an approval of some kind, which the
+  // ending needs in order to tell refusal apart from compromise
+  const approved = { jadar: "live", cook: "open" };
+  G.builtActs = G.builtActs || [];
+  const a = ACTS[G.act];
+  if ((G.flags.has(approved[a.id]) || (a.id === "cook" && G.flags.has("blocks"))) && !G.builtActs.includes(a.id)) {
+    G.builtActs.push(a.id);
   }
-  G.record.push({ place: b.place, label: stampText, vio, up });
+  G.built = G.builtActs.length;
+
+  G.log.push({ place: b.place, label: stampText, cost, met, starved: starved.length });
   G.phase = "outcome"; G.artVar = variant;
 
-  const chips = METERS.filter((m) => d[m.key])
-    .map((m) => `<span class="chip ${d[m.key] > 0 ? "up" : "down"}">${esc(m.label)} ${d[m.key] > 0 ? "+" : ""}${d[m.key]}</span>`).join("");
+  const moved = STAKEHOLDERS.filter((s) => G.needs[s.id] !== before[s.id]);
 
   shell(`<div class="scroll">
       <div class="where"><h2 class="outcome-t">${esc(t)}</h2><span class="yr">${esc(b.year)}</span></div>
-      ${vio.length ? `<div class="breach">Charter breach &middot; ${vio.map((p) => esc(principle(p).label)).join(", ")}
-        <i>${esc(principle(vio[0]).short)}</i></div>` : ""}
-      ${up.length && !vio.length ? `<div class="upheld">Charter upheld &middot; ${up.map((p) => esc(principle(p).label)).join(", ")}</div>` : ""}
       <p class="outcome-x">${esc(x)}</p>
-      <div class="deltas">${chips}</div>
-      ${forecast(landed)}
+      <div class="ledger">
+        <div class="lg"><span>Decision</span><b class="dn">&minus;${cost}</b></div>
+        <div class="lg"><span>${met} interest${met === 1 ? "" : "s"} met</span><b class="up">+${G.lastIncome}</b></div>
+        ${starved.length ? `<div class="lg"><span>${starved.length} starving</span><b class="dn">&minus;${G.lastDrain}</b></div>` : ""}
+        <div class="lg tot"><span>Social licence</span><b>${G.licence}</b></div>
+      </div>
+      ${moved.length ? `<div class="moved">${moved.map((s) => `
+        <span class="mv ${G.needs[s.id] > before[s.id] ? "up" : "down"}">${esc(nameOf(s))}
+        ${before[s.id]}&rarr;${G.needs[s.id]}</span>`).join("")}</div>` : ""}
+      ${G.licence <= 20 && G.licence > 0 ? `<div class="warnbox">Licence is nearly gone. One more expensive round and the project is stopped by the people standing around it.</div>` : ""}
     </div>
     <div class="controls"><button class="btn" id="next">Next</button></div>`,
     `<div class="stamp">${esc(stampText)}</div>`);
 
   const layer = $("#artlayer");
   layer.classList.add("art-enter");
-  if (vio.length || (d.env || 0) + (d.comm || 0) < -18) setTimeout(() => layer.classList.add("shake"), 300);
-  bump(d);
+  if (starved.length || cost > 14) setTimeout(() => layer.classList.add("shake"), 280);
+  $$(".stake").forEach((el) => { if (moved.some((s) => s.id === el.dataset.s)) el.classList.add("pop"); });
+
   $("#next").onclick = () => {
-    if (G.pending) { const em = G.pending; G.pending = null; return beat(em); }
-    G.beats = CHAPTERS[G.ch].beats.filter(passes);
+    if (G.licence <= 0) return ending();
+    G.beats = ACTS[G.act].beats.filter(passes);
     G.b++;
-    if (G.b >= G.beats.length) { G.ch++; if (G.ch >= CHAPTERS.length) return ending(); return chapter(); }
+    if (G.b >= G.beats.length) { G.act++; if (G.act >= ACTS.length) return ending(); return act(); }
     beat();
   };
 }
 
 /* ------------------------------------------------------------- ending */
 function ending() {
-  G.phase = "end";
-  const n = G.breaches.length;
-  const L = { closed: G.loopFunded.length, matured: G.matured.length, stranded: underwater() };
-  const e = ENDINGS.find((x) => x.test(G.s, n, L)) || ENDINGS[ENDINGS.length - 1];
+  G.phase = "end"; stop();
+  const L = { licence: G.licence, met: metCount(), starved: starvedList(), built: G.built };
+  const e = ENDINGS.find((x) => x.test(L)) || ENDINGS[ENDINGS.length - 1];
   G.artKey = e.art; G.artVar = "base"; G.p = {};
-  document.body.dataset.realm = G.flags.has("cook_open") || G.flags.has("cook_now") ? "sea" : "land";
   shell(`<div class="scroll">
       <div class="where"><h2>${esc(e.title)}</h2><span class="yr">Verdict</span></div>
-      <p class="tally">Charter: <b>${G.charter.map((id) => esc(principle(id).label)).join(" + ")}</b> &nbsp;·&nbsp;
-        <b class="${n ? "bad" : "ok"}">${n} ${n === 1 ? "breach" : "breaches"}</b> &nbsp;·&nbsp;
-        loop <b class="${L.closed >= 4 ? "ok" : L.closed ? "" : "bad"}">${L.closed}/6 funded</b>,
-        ${L.matured} landed &nbsp;·&nbsp; forecast <b>${G.demand}</b></p>
+      <p class="tally">Social licence <b class="${G.licence <= 20 ? "bad" : "ok"}">${G.licence}</b> &nbsp;·&nbsp;
+        <b class="${L.met >= 4 ? "ok" : ""}">${L.met} of 6 met</b>
+        ${L.starved.length ? ` &nbsp;·&nbsp; <b class="bad">${L.starved.length} starved</b>` : ""}</p>
       <p class="situation">${esc(e.text)}</p>
-      ${n ? `<div class="fates">${G.breaches.slice(0, 3).map((x) => `<div><b>${esc(principle(x.principle).label)}</b> broken at ${esc(x.place)}</div>`).join("")}
-        ${n > 3 ? `<div><b>and ${n - 3} more</b> across the two cases</div>` : ""}</div>` : ""}
-      <div class="fates">${FATES.map((f) => `<div><b>${esc(f.who)}</b> ${esc(G.flags.has(f.if) ? f.yes : f.no)}</div>`).join("")}</div>
+      <div class="fates">${STAKEHOLDERS.map((s) => {
+        const n = G.needs[s.id];
+        return `<div><b>${esc(s.label)}</b> ${n <= 0 ? "was never funded at all." : n >= MET ? "got enough to stay in the room." : "got something, and not enough."}</div>`;
+      }).join("")}</div>
     </div>
     <div class="controls"><button class="btn" id="deb">Debrief</button>
       <button class="btn alt" id="again">Play again</button></div>`);
@@ -501,11 +424,10 @@ function debrief() {
 
 function reset() {
   stop();
-  G.ch = -1; G.b = 0; G.beats = []; G.s = Object.assign({}, START);
-  G.charter = []; G.breaches = []; G.flags = new Set(); G.record = []; G.p = {};
-  G.pending = null; G.floored = []; G.floorsThisCase = 0; G.charterVoid = false; G.inFloor = false;
-  G.loop = {}; G.loopFunded = []; G.matured = [];
-  G.demand = 100; G.demandLog = [100]; G.lastRevision = 0; G.oreLeft = null; G.oreLabel = null;
+  G.act = -1; G.b = 0; G.beats = []; G.phase = "title";
+  G.licence = START_LICENCE; G.flags = new Set(); G.log = []; G.p = {};
+  G.round = 0; G.actRound = 0; G.lastIncome = 0; G.lastDrain = 0; G.built = 0; G.builtActs = [];
+  STAKEHOLDERS.forEach((s) => (G.needs[s.id] = 2));
   title();
 }
 
@@ -515,7 +437,7 @@ document.addEventListener("keydown", (e) => {
   if (k === " " || k === "enter") { const b = $("#go") || $("#next") || $("#deb"); if (b) { e.preventDefault(); b.click(); } return; }
   if (k === "t" && G.phase === "beat") { $("#talk")?.click(); return; }
   if (G.phase === "beat" && ["1", "2", "3", "4", "5", "6"].includes(k)) {
-    (document.querySelector(`.pick[data-i="${+k - 1}"]`) || document.querySelector(`.card[data-i="${+k - 1}"]`))?.click();
+    ($(`.pick[data-i="${+k - 1}"]`) || $(`.card[data-i="${+k - 1}"]`))?.click();
   }
   if (k === "r" && (G.phase === "end" || G.phase === "debrief")) reset();
 });
